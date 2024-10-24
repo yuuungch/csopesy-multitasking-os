@@ -408,7 +408,7 @@ void ConsoleManager::schedulerTest(bool set_scheduler) {
         int cycles = 1;
         int i = 1;
 
-        while (i <= 20) {
+        while (scheduler_test_run) {
             if (cycles % batch_process_freq == 0) {
                 if (i < 10)
                     addConsole("process00" + to_string(i));
