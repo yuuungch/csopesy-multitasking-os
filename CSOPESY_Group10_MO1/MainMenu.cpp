@@ -13,15 +13,7 @@ using namespace std;
 
 ConsoleManager consoles;
 bool isInitialized = false;
-int num_cpu;
-string scheduler;
-int quantum_cycles;
-int batch_process_freq;
-int min_ins;
-int max_ins;
-int delays_per_exec;
 
-const uint64_t MAX_VALUE = 4294967296;
 
 /*
 * This function prints the ASCII text header
@@ -47,84 +39,6 @@ void displayHeader() {
 */
 void clearCommand() {
     system("cls");
-}
-
-/*
-* This function reads the config.txt file and initializes parameters
-*/
-bool readConfig(const string& filename) {
-    ifstream configFile(filename);
-    if (!configFile.is_open()) {
-        cerr << "Error: Could not open config file.\n";
-        return false;
-    }
-
-    string line;
-    while (getline(configFile, line)) {
-        istringstream iss(line);
-        string key;
-        if (!(iss >> key)) continue;
-
-        if (key == "num-cpu") {
-            iss >> num_cpu;
-            if (num_cpu < 1 || num_cpu > 128) {
-                cerr << "Error: Invalid num-cpu value: " << num_cpu << ". Must be in range [1, 128].\n";
-                return false;
-            }
-        }
-        else if (key == "scheduler") {
-            string value;
-            iss >> quoted(value);  // Use std::quoted to handle quotes
-            scheduler = value;  // Assign the stripped value
-            if (scheduler != "fcfs" && scheduler != "rr") {
-                cerr << "Error: Invalid scheduler value: '" << scheduler << "'. Must be 'fcfs' or 'rr'.\n";
-                return false;
-            }
-        }
-        else if (key == "quantum-cycles") {
-            iss >> quantum_cycles;
-            if (quantum_cycles < 1 || quantum_cycles > MAX_VALUE) {
-                cerr << "Error: Invalid quantum-cycles value: " << quantum_cycles << ". Must be in range [1, " << MAX_VALUE << "].\n";
-                return false;
-            }
-        }
-        else if (key == "batch-process-freq") {
-            iss >> batch_process_freq;
-            if (batch_process_freq < 1 || batch_process_freq > MAX_VALUE) {
-                cerr << "Error: Invalid batch-process-freq value: " << batch_process_freq << ". Must be in range [1, " << MAX_VALUE << "].\n";
-                return false;
-            }
-        }
-        else if (key == "min-ins") {
-            iss >> min_ins;
-            if (min_ins < 1 || min_ins > MAX_VALUE) {
-                cerr << "Error: Invalid min-ins value: " << min_ins << ". Must be in range [1, " << MAX_VALUE << "].\n";
-                return false;
-            }
-        }
-        else if (key == "max-ins") {
-            iss >> max_ins;
-            if (max_ins < 1 || max_ins > MAX_VALUE) {
-                cerr << "Error: Invalid max-ins value: " << max_ins << ". Must be in range [1, " << MAX_VALUE << "].\n";
-                return false;
-            }
-        }
-        else if (key == "delays-per-exec") {
-            iss >> delays_per_exec;
-            if (delays_per_exec < 0 || delays_per_exec > MAX_VALUE) {
-                cerr << "Error: Invalid delays-per-exec value: " << delays_per_exec << ". Must be in range [0, " << MAX_VALUE << "].\n";
-                return false;
-            }
-        }
-        else {
-            cerr << "Error: Unknown parameter in config file: " << key << endl;
-            return false;
-        }
-    }
-
-    cout << "Configuration successfully loaded.\n";
-    configFile.close();
-    return true;
 }
 
 /*
@@ -158,7 +72,7 @@ void screenCommand(const vector<string>& commandBuffer) {
             // if console does not exist, create new console
             else {
                 clearCommand();
-                consoles.addConsole(commandBuffer[2], 100, true); // Add new console to console list
+                consoles.addConsole(commandBuffer[2], true); // Add new console to console list
                 consoles.loopConsole(commandBuffer[2]); // initialize console program
                 clearCommand();
                 displayHeader();
@@ -204,24 +118,7 @@ void checkCommand(const vector<string>& commandBuffer) {
 
     string command = commandBuffer[0];
 
-    if (!isInitialized && command != "initialize") {
-        cout << "Please run the 'initialize' command first.\n";
-        return;
-    }
-
-    if (command == "initialize") {
-        if (isInitialized) {
-            cout << "Already initialized.\n";
-            return;
-        }
-        if (readConfig("config.txt")) {
-            isInitialized = true;
-        }
-    }
-    else if (command == "screen") {
-        screenCommand(commandBuffer);
-    }
-    else if (command == "clear") {
+    if (command == "clear") {
         clearCommand();
         displayHeader();
     }
@@ -229,14 +126,49 @@ void checkCommand(const vector<string>& commandBuffer) {
         cout << command << " command recognized. Thank you! Exiting program.\n";
         exit(0);
     }
-    else {
-        cout << "Command " << command << " not recognized. Please try again.\n";
+    else if (!isInitialized) {
+        if (command == "initialize") {
+            cout << "Menu initialized.\n";
+            isInitialized = true;
+        }
+        else if (command == "screen" || command == "scheduler-test" || command == "scheduler-stop" || command == "report-util") {
+            cout << "Please run the \"initialize\" command first\n";
+        }
+        else {
+            cout << "Command " << command << " not recognized. Please try again.\n";
+        }
     }
+
+    else if (isInitialized) {
+        if (command == "initialize") {
+            cout << "Already initialized.\n";
+        }
+        else if (command == "screen") {
+            screenCommand(commandBuffer);
+        }
+        else if (command == "scheduler-test") {
+            cout << "Running scheduler test\n";
+            consoles.schedulerTest();
+        }
+        else if (command == "scheduler-stop") {
+            
+        }
+        else if (command == "report-util") {
+
+        }
+        else {
+            cout << "Command " << command << " not recognized. Please try again.\n";
+        }
+    }
+    
+
 }
 
 int main() {
     vector<string> commandBuffer;
     string command;
+
+    //consoles.testConfig();
 
     displayHeader();
 

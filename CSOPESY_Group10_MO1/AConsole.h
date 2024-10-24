@@ -22,6 +22,8 @@ class AConsole {
 
         AConsole(const string& name, int instructionTotal);
 
+
+
         void runProcess(int coreID);
 
         string getName() const;

@@ -3,23 +3,127 @@
 #include <vector>
 #include <utility>
 #include <format>
+#include <fstream>
+#include <sstream>
 #include <iomanip>
+#include <random>
 #include "ConsoleManager.h"
 #include "AConsole.h"
 
 using namespace std;
 
-ConsoleManager::ConsoleManager(int cores) : coreCount(cores), availableCores(cores) {
-    cpuCores = vector<bool>(cores, false);
+int num_cpu;
+string scheduler;
+int quantum_cycles;
+int batch_process_freq;
+int min_ins;
+int max_ins;
+int delays_per_exec;
+const uint64_t MAX_VALUE = 4294967296;
+
+ConsoleManager::ConsoleManager() {
+
+	readConfig("config.txt");
+
+    cpuCores = vector<bool>(num_cpu, false);
     startScheduler();
 }
+
+/*
+* This function reads the config.txt file and initializes parameters
+*/
+void ConsoleManager::readConfig(const string& filename) {
+    ifstream configFile(filename);
+    if (!configFile.is_open()) {
+        cerr << "Error: Could not open config file.\n";
+        return;
+    }
+
+    string line;
+    while (getline(configFile, line)) {
+        istringstream iss(line);
+        string key;
+        if (!(iss >> key)) continue;
+
+        if (key == "num-cpu") {
+            iss >> num_cpu;
+            if (num_cpu < 1 || num_cpu > 128) {
+                cerr << "Error: Invalid num-cpu value: " << num_cpu << ". Must be in range [1, 128].\n";
+                return;
+            }
+        }
+        else if (key == "scheduler") {
+            string value;
+            iss >> quoted(value);  // Use std::quoted to handle quotes
+            scheduler = value;  // Assign the stripped value
+            if (scheduler != "fcfs" && scheduler != "rr") {
+                cerr << "Error: Invalid scheduler value: '" << scheduler << "'. Must be 'fcfs' or 'rr'.\n";
+                return;
+            }
+        }
+        else if (key == "quantum-cycles") {
+            iss >> quantum_cycles;
+            if (quantum_cycles < 1 || quantum_cycles > MAX_VALUE) {
+                cerr << "Error: Invalid quantum-cycles value: " << quantum_cycles << ". Must be in range [1, " << MAX_VALUE << "].\n";
+                return;
+            }
+        }
+        else if (key == "batch-process-freq") {
+            iss >> batch_process_freq;
+            if (batch_process_freq < 1 || batch_process_freq > MAX_VALUE) {
+                cerr << "Error: Invalid batch-process-freq value: " << batch_process_freq << ". Must be in range [1, " << MAX_VALUE << "].\n";
+                return;
+            }
+        }
+        else if (key == "min-ins") {
+            iss >> min_ins;
+            if (min_ins < 1 || min_ins > MAX_VALUE) {
+                cerr << "Error: Invalid min-ins value: " << min_ins << ". Must be in range [1, " << MAX_VALUE << "].\n";
+                return;
+            }
+        }
+        else if (key == "max-ins") {
+            iss >> max_ins;
+            if (max_ins < 1 || max_ins > MAX_VALUE) {
+                cerr << "Error: Invalid max-ins value: " << max_ins << ". Must be in range [1, " << MAX_VALUE << "].\n";
+                return;
+            }
+        }
+        else if (key == "delays-per-exec") {
+            iss >> delays_per_exec;
+            if (delays_per_exec < 0 || delays_per_exec > MAX_VALUE) {
+                cerr << "Error: Invalid delays-per-exec value: " << delays_per_exec << ". Must be in range [0, " << MAX_VALUE << "].\n";
+                return;
+            }
+        }
+        else {
+            cerr << "Error: Unknown parameter in config file: " << key << endl;
+            return;
+        }
+    }
+    //cout << "Configuration successfully loaded.\n";
+    configFile.close();
+    return;
+}
+
+void ConsoleManager::testConfig() {
+    // test if the config file was read successfully, print all values
+    cout << "num-cpu: " << num_cpu << endl;
+    cout << "scheduler: " << scheduler << endl;
+    cout << "quantum-cycles: " << quantum_cycles << endl;
+    cout << "batch-process-freq: " << batch_process_freq << endl;
+    cout << "min-ins: " << min_ins << endl;
+    cout << "max-ins: " << max_ins << endl;
+    cout << "delays-per-exec: " << delays_per_exec << endl;
+}
+
 
 /*
 * This function adds a new console to the list of consoles
 * 
 * @param name - the name of the console
 */
-void ConsoleManager::addConsole(const string& name, const int maxInstructions, bool fromScreenCommand = false) {
+void ConsoleManager::addConsole(const string& name, bool fromScreenCommand = false) {
     lock_guard<mutex> lock(processMutex);
 
     // Check if the console name already exists in the map
@@ -31,6 +135,13 @@ void ConsoleManager::addConsole(const string& name, const int maxInstructions, b
     // Create a unique process ID for the new console
     static int nextId = 1;
     int processId = nextId++;  // Generate the next process ID
+
+	// Generate a random number of instructions between min_ins and max_ins
+	random_device rd;
+	knuth_b knuth_gen(rd());
+	uniform_int_distribution<> dist(min_ins, max_ins);
+	int maxInstructions = dist(knuth_gen);
+
 
     // Create a new console with the provided name and max instructions
     AConsole* newConsole = new AConsole(name, maxInstructions);
@@ -136,8 +247,14 @@ void ConsoleManager::listConsoles() {
 
 
 void ConsoleManager::startScheduler() {
-	thread schedulerThread(&ConsoleManager::schedulerFCFS, this);
-    schedulerThread.detach();
+    if (scheduler == "fcfs") {
+        thread schedulerThread(&ConsoleManager::schedulerFCFS, this);
+		schedulerThread.detach();
+	}
+    else if (scheduler == "rr") {
+        //thread schedulerThread(&ConsoleManager::schedulerRR, this);
+        //schedulerThread.detach();
+    }
 }
 
 /*
@@ -269,6 +386,22 @@ AConsole::Status ConsoleManager::getConsoleStatus(const string& name) const {
     return AConsole::TERMINATED; // Assuming terminated is a safe fallback; you can change this
 }
 
+void ConsoleManager::schedulerTest() {
+    thread([this] {
+        bool testRun = true;
+        int cycles = 1;
+        int i = 1;
+
+        while (testRun) {
+            if (cycles % batch_process_freq == 0) {
+                addConsole("process" + to_string(i));
+                i++;
+            }
+            this_thread::sleep_for(chrono::milliseconds(100)); 
+            cycles++;
+        }
+    }).detach();
+}
 
 
 void ConsoleManager::schedulerFCFS() {

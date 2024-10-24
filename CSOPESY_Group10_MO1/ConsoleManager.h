@@ -5,6 +5,7 @@
 #include <queue>
 #include <mutex>
 #include <string>
+
 #include <vector>
 #include "AConsole.h"
 
@@ -24,19 +25,24 @@ private:
 
 
 public:
-	ConsoleManager(int cores = 4); // default constructor
+	ConsoleManager(); // default constructor
 
-    void addConsole(const string& name, const int maxInstructions, bool fromScreenCommand);
+    void addConsole(const string& name, bool fromScreenCommand);
+	void readConfig(const string& filename);
+    void testConfig();
     void displayConsole(const string& name) const;
     void listConsoles();
     void startScheduler();
     bool consoleExists(const string& name) const;
     bool hasConsoles() const;
+
     AConsole::Status getConsoleStatus(const string& name) const;
 
     void loopConsole(const string& name);
 
-    void schedulerFCFS();
+    void schedulerTest();
+    void schedulerStop();
 
-    // void Week6_FCFSScheduler();
+    void schedulerFCFS();
+    void schedulerRR();
 };
