@@ -23,9 +23,7 @@ void AConsole::runProcess(int coreID) {
     status = RUNNING;
     
     string fileName = name + "_log.txt";
-    ofstream outFile(fileName, ios::out | ios::trunc);
-
-    
+    ofstream outFile(fileName, ios::out | ios::trunc);  
 
     if (outFile.is_open()) {
         outFile << "Process name: " + name + "\n";
@@ -46,6 +44,7 @@ void AConsole::runProcess(int coreID) {
         instructionLine++;
 
         string generatedTimestamp = getCurrentTime();
+		timestamp = generatedTimestamp;
 
         if (outFile.is_open()) {
             outFile << generatedTimestamp << " Core:" << coreID << " \"Hello world from " << name << "!\"" << "\n";

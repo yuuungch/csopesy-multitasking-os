@@ -148,13 +148,15 @@ void checkCommand(const vector<string>& commandBuffer) {
         }
         else if (command == "scheduler-test") {
             cout << "Running scheduler test\n";
-            consoles.schedulerTest();
+            consoles.schedulerTest(true);
         }
         else if (command == "scheduler-stop") {
+            cout << "Stopping scheduler test\n";
+            consoles.schedulerTest(false);
             
         }
         else if (command == "report-util") {
-
+			// TODO: Implement report-util command
         }
         else {
             cout << "Command " << command << " not recognized. Please try again.\n";

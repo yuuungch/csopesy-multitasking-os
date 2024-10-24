@@ -13,7 +13,7 @@ using namespace std;
 
 class ConsoleManager {
 private:
-    std::map<std::string, AConsole*> consoles;
+    map<string, AConsole*> consoles;
 
     bool currentConsole = false;
     int coreCount;
@@ -31,6 +31,7 @@ public:
 	void readConfig(const string& filename);
     void testConfig();
     void displayConsole(const string& name) const;
+    void displayCPUInfo();
     void listConsoles();
     void startScheduler();
     bool consoleExists(const string& name) const;
@@ -40,8 +41,7 @@ public:
 
     void loopConsole(const string& name);
 
-    void schedulerTest();
-    void schedulerStop();
+    void schedulerTest(bool set_scheduler);
 
     void schedulerFCFS();
     void schedulerRR();

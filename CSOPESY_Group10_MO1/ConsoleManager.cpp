@@ -21,9 +21,14 @@ int max_ins;
 int delays_per_exec;
 const uint64_t MAX_VALUE = 4294967296;
 
+bool scheduler_test_run = false;
+
 ConsoleManager::ConsoleManager() {
 
 	readConfig("config.txt");
+
+    coreCount = num_cpu;
+    availableCores = num_cpu;
 
     cpuCores = vector<bool>(num_cpu, false);
     startScheduler();
@@ -117,7 +122,6 @@ void ConsoleManager::testConfig() {
     cout << "delays-per-exec: " << delays_per_exec << endl;
 }
 
-
 /*
 * This function adds a new console to the list of consoles
 * 
@@ -161,11 +165,6 @@ void ConsoleManager::addConsole(const string& name, bool fromScreenCommand = fal
         // Call displayConsole to show the relevant details
         displayConsole(name);
     }
-
-    else
-    {
-        cout << "Console \"" << name << "\" created." << endl;
-    }
 }
 
 
@@ -194,8 +193,26 @@ void ConsoleManager::displayConsole(const string& name) const {
     }
 }
 
+void ConsoleManager::displayCPUInfo() {
+    int usedCores = coreCount - availableCores;
+
+	float cpuUsage = 0.0;
+	if (usedCores > 0) {
+		cpuUsage = (usedCores / (float) coreCount) * 100;
+	}
+
+	cout << "CPU Cores: " << coreCount << endl;
+	cout << "CPU Utilization: " << fixed << setprecision(2) << cpuUsage << "%" << endl;
+    cout << "Cores used: " << usedCores << endl;
+    cout << "Cores available: " << availableCores << endl;
+}
+
 void ConsoleManager::listConsoles() {
     lock_guard<mutex> lock(processMutex);
+
+    displayCPUInfo();
+
+    cout << "\n-----------------------------------------\n";
 
     if (!hasConsoles()) {
         cout << "No consoles to list.\n";
@@ -205,8 +222,6 @@ void ConsoleManager::listConsoles() {
     bool hasQueued = false;
     bool hasRunning = false;
     bool hasFinished = false;
-
-    cout << "-----------------------------------------\n";
 
     cout << "Queued Processes:\n";
     for (const auto& consolePair : consoles) {
@@ -252,8 +267,8 @@ void ConsoleManager::startScheduler() {
 		schedulerThread.detach();
 	}
     else if (scheduler == "rr") {
-        //thread schedulerThread(&ConsoleManager::schedulerRR, this);
-        //schedulerThread.detach();
+        thread schedulerThread(&ConsoleManager::schedulerRR, this);
+        schedulerThread.detach();
     }
 }
 
@@ -386,15 +401,22 @@ AConsole::Status ConsoleManager::getConsoleStatus(const string& name) const {
     return AConsole::TERMINATED; // Assuming terminated is a safe fallback; you can change this
 }
 
-void ConsoleManager::schedulerTest() {
+void ConsoleManager::schedulerTest(bool set_scheduler) {
+    scheduler_test_run = set_scheduler;
+
     thread([this] {
-        bool testRun = true;
         int cycles = 1;
         int i = 1;
 
-        while (testRun) {
+        while (i <= 20) {
             if (cycles % batch_process_freq == 0) {
-                addConsole("process" + to_string(i));
+                if (i < 10)
+                    addConsole("process00" + to_string(i));
+                else if (i < 100)
+                    addConsole("process0" + to_string(i));
+                else
+                    addConsole("process" + to_string(i));
+
                 i++;
             }
             this_thread::sleep_for(chrono::milliseconds(100)); 
@@ -416,13 +438,13 @@ void ConsoleManager::schedulerFCFS() {
                 waitingQueue.pop();
 
                 cpuCores[i] = true;
+                availableCores--;
 
                 runningProcesses[nextProcess->getName()] = thread([this, nextProcess, i]() {
                     nextProcess->runProcess(i);
                     lock_guard<mutex> lock(processMutex);
                     cpuCores[i] = false;
-                   
-                   
+					availableCores++;
                     });
 
                 runningProcesses[nextProcess->getName()].detach();
@@ -431,5 +453,10 @@ void ConsoleManager::schedulerFCFS() {
 
         
     }
+}
+
+void ConsoleManager::schedulerRR() {
+    // TODO: Implement Round Robin Algorithm
+
 }
 
