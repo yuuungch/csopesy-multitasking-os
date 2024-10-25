@@ -260,6 +260,81 @@ void ConsoleManager::listConsoles() {
     if (!hasFinished) cout << "No terminated consoles.\n";
 }
 
+void ConsoleManager::reportUtil() {
+    lock_guard<mutex> lock(processMutex);
+
+    string fileName = "console_report.txt";
+    ofstream outFile(fileName, ios::out | ios::trunc);
+
+    if (!outFile.is_open()) {
+        cerr << "Error: unable to open file for writing report details";
+        return;
+    }
+
+    // Start writing to the file
+    outFile << "Console Report\n";
+    outFile << "-----------------------------------------\n";
+
+    // Display CPU Info
+    int usedCores = coreCount - availableCores;
+
+    float cpuUsage = 0.0;
+    if (usedCores > 0) {
+        cpuUsage = (usedCores / (float)coreCount) * 100;
+    }
+
+    outFile << "CPU Cores: " << coreCount << endl;
+    outFile << "CPU Utilization: " << fixed << setprecision(2) << cpuUsage << "%" << endl;
+    outFile << "Cores used: " << usedCores << endl;
+    outFile << "Cores available: " << availableCores << endl;
+
+    if (!hasConsoles()) {
+        outFile << "No consoles to list.\n";
+        outFile.close();
+        return;
+    }
+
+    bool hasQueued = false;
+    bool hasRunning = false;
+    bool hasFinished = false;
+
+    outFile << "Queued Processes:\n";
+    for (const auto& consolePair : consoles) {
+        AConsole* console = consolePair.second;
+        if (console->getStatus() == AConsole::WAITING) {
+            hasQueued = true;
+            outFile << console->getName() + "\t" + console->getTimestamp() + "\tCore: " + to_string(console->getCoreID()) + "\t" + to_string(console->getInstructionLine()) + "/" + to_string(console->getInstructionTotal()) + "\n";
+        }
+    }
+    outFile << "\n";
+    if (!hasQueued) outFile << "No queued consoles.\n";
+
+    outFile << "Running Processes:\n";
+    for (const auto& consolePair : consoles) {
+        AConsole* console = consolePair.second;
+        if (console->getStatus() == AConsole::RUNNING) {
+            hasRunning = true;
+            outFile << console->getName() + "\t" + console->getTimestamp() + "\tCore: " + to_string(console->getCoreID()) + "\t" + to_string(console->getInstructionLine()) + "/" + to_string(console->getInstructionTotal()) + "\n";
+        }
+    }
+    outFile << "\n";
+    if (!hasRunning) outFile << "No running consoles.\n";
+
+    outFile << "Finished Processes:\n";
+    for (const auto& consolePair : consoles) {
+        AConsole* console = consolePair.second;
+        if (console->getStatus() == AConsole::TERMINATED) {
+            hasFinished = true;
+            outFile << console->getName() + "\t" + console->getTimestamp() + "\tFinished\t" + to_string(console->getInstructionLine()) + "/" + to_string(console->getInstructionTotal()) + "\n";
+        }
+    }
+    outFile << "\n";
+    if (!hasFinished) outFile << "No terminated consoles.\n";
+
+    outFile.close();
+    cout << "Report generated: " << fileName << "\n";
+}
+
 
 void ConsoleManager::startScheduler() {
     if (scheduler == "fcfs") {
@@ -425,7 +500,6 @@ void ConsoleManager::schedulerTest(bool set_scheduler) {
     }).detach();
 }
 
-
 void ConsoleManager::schedulerFCFS() {
     while (true) {
         this_thread::sleep_for(chrono::seconds(1));
@@ -441,7 +515,7 @@ void ConsoleManager::schedulerFCFS() {
                 availableCores--;
 
                 runningProcesses[nextProcess->getName()] = thread([this, nextProcess, i]() {
-                    nextProcess->runProcess(i);
+                    nextProcess->runProcess(i, 0);
                     lock_guard<mutex> lock(processMutex);
                     cpuCores[i] = false;
 					availableCores++;
@@ -456,7 +530,33 @@ void ConsoleManager::schedulerFCFS() {
 }
 
 void ConsoleManager::schedulerRR() {
-    // TODO: Implement Round Robin Algorithm
+    while (true) {
+        this_thread::sleep_for(chrono::seconds(1));
 
+        lock_guard<mutex> lock(processMutex);
+
+        for (int i = 0; i < cpuCores.size(); ++i) {
+            if (!cpuCores[i] && !waitingQueue.empty()) {
+                AConsole* nextProcess = waitingQueue.front();
+                waitingQueue.pop();
+
+                cpuCores[i] = true;
+                availableCores--;
+
+                runningProcesses[nextProcess->getName()] = thread([this, nextProcess, i]() {
+                    nextProcess->runProcess(i, quantum_cycles); // Using quantum_cycles for RR
+                    lock_guard<mutex> lock(processMutex);
+
+                    // If the process has not completed, requeue it
+                    if (nextProcess->getIsActive() && nextProcess->getInstructionLine() < nextProcess->getInstructionTotal()) {
+                        waitingQueue.push(nextProcess);
+                    }
+                    cpuCores[i] = false;
+                    availableCores++;
+                    });
+
+                runningProcesses[nextProcess->getName()].detach();
+            }
+        }
+    }
 }
-
