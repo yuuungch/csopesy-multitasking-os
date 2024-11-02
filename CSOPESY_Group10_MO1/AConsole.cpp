@@ -44,6 +44,7 @@ void AConsole::runProcess(int coreID, int quantum_cycles) {
         int randomDelay = dist(knuth_gen);
 
         if (quantum_cycles > 0 && executedInstructions >= quantum_cycles) {
+            status = WAITING;
             break;
         }
 
@@ -52,7 +53,7 @@ void AConsole::runProcess(int coreID, int quantum_cycles) {
         executedInstructions++;
     }
 
-    if (instructionLine >= instructionTotal) {
+    if (instructionLine == instructionTotal) {
         status = TERMINATED;
     }
 }
