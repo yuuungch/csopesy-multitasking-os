@@ -52,7 +52,9 @@ void AConsole::runProcess(int coreID, int quantum_cycles) {
         executedInstructions++;
     }
 
-    status = TERMINATED;
+    if (instructionLine >= instructionTotal) {
+        status = TERMINATED;
+    }
 }
 
 /*
