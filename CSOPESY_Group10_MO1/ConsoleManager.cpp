@@ -193,6 +193,9 @@ void ConsoleManager::displayConsole(const string& name) const {
     }
 }
 
+/*
+* This function displays the current general CPU info
+*/
 void ConsoleManager::displayCPUInfo() {
     int usedCores = coreCount - availableCores;
 
@@ -207,6 +210,9 @@ void ConsoleManager::displayCPUInfo() {
     cout << "Cores available: " << availableCores << endl;
 }
 
+/*
+* This function lists the status of all the consoles in the console screen
+*/
 void ConsoleManager::listConsoles() {
     lock_guard<mutex> lock(processMutex);
 
@@ -223,7 +229,7 @@ void ConsoleManager::listConsoles() {
     bool hasRunning = false;
     bool hasFinished = false;
 
-    cout << "Queued Processes:\n";
+/*  cout << "Queued Processes:\n";
     for (const auto& consolePair : consoles) {
         AConsole* console = consolePair.second;  
         // get all queued consoles
@@ -233,7 +239,7 @@ void ConsoleManager::listConsoles() {
         }
     }
     cout << "\n";
-    if (!hasQueued) cout << "No queued consoles.\n";
+    if (!hasQueued) cout << "No queued consoles.\n"; */
 
     cout << "Running Processes:\n";
     for (const auto& consolePair : consoles) {
@@ -260,6 +266,9 @@ void ConsoleManager::listConsoles() {
     if (!hasFinished) cout << "No terminated consoles.\n";
 }
 
+/*
+* This function prints the status of all the consoles as a .txt file
+*/
 void ConsoleManager::reportUtil() {
     lock_guard<mutex> lock(processMutex);
 
@@ -298,7 +307,7 @@ void ConsoleManager::reportUtil() {
     bool hasRunning = false;
     bool hasFinished = false;
 
-    outFile << "Queued Processes:\n";
+ /* outFile << "Queued Processes:\n";
     for (const auto& consolePair : consoles) {
         AConsole* console = consolePair.second;
         if (console->getStatus() == AConsole::WAITING) {
@@ -307,7 +316,7 @@ void ConsoleManager::reportUtil() {
         }
     }
     outFile << "\n";
-    if (!hasQueued) outFile << "No queued consoles.\n";
+    if (!hasQueued) outFile << "No queued consoles.\n"; */
 
     outFile << "Running Processes:\n";
     for (const auto& consolePair : consoles) {
@@ -502,7 +511,7 @@ void ConsoleManager::schedulerTest(bool set_scheduler) {
 
 void ConsoleManager::schedulerFCFS() {
     while (true) {
-        this_thread::sleep_for(chrono::seconds(1));
+        this_thread::sleep_for(chrono::milliseconds(100));
 
         lock_guard<mutex> lock(processMutex);
 
@@ -515,7 +524,7 @@ void ConsoleManager::schedulerFCFS() {
                 availableCores--;
 
                 runningProcesses[nextProcess->getName()] = thread([this, nextProcess, i]() {
-                    nextProcess->runProcess(i, 0);
+                    nextProcess->runProcess(i, 0, delays_per_exec);
                     lock_guard<mutex> lock(processMutex);
                     cpuCores[i] = false;
 					availableCores++;
@@ -531,7 +540,7 @@ void ConsoleManager::schedulerFCFS() {
 
 void ConsoleManager::schedulerRR() {
     while (true) {
-        this_thread::sleep_for(chrono::seconds(1));
+        this_thread::sleep_for(chrono::milliseconds(100));
 
         lock_guard<mutex> lock(processMutex);
 
@@ -544,7 +553,7 @@ void ConsoleManager::schedulerRR() {
                 availableCores--;
 
                 runningProcesses[nextProcess->getName()] = thread([this, nextProcess, i]() {
-                    nextProcess->runProcess(i, quantum_cycles); // Using quantum_cycles for RR
+                    nextProcess->runProcess(i, quantum_cycles, delays_per_exec);
                     lock_guard<mutex> lock(processMutex);
 
                     // If the process has not completed, requeue it

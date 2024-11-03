@@ -25,11 +25,19 @@ AConsole::AConsole(const std::string& name, int instructionTotal)
  * For Round Robin, the process will yield control back to the scheduler after
  * executing a specified number of instructions (time quantum).
  *
+ * Additionally, the function incorporates a busy-waiting delay mechanism, where
+ * the process may wait for a specified number of CPU cycles (delaysPerExec)
+ * before proceeding to the next instruction. This simulates processing time
+ * that may vary depending on system conditions.
+ *
  * @param coreID         - The ID of the CPU core on which the process is executing.
- * @param quantum_cycles - The maximum number of instructions to execute before yielding
- *                         control to the scheduler (default is 0, indicating FCFS).
+ * @param quantum_cycles  - The maximum number of instructions to execute before yielding
+ *                          control to the scheduler (default is 0, indicating FCFS).
+ * @param delaysPerExec   - The number of CPU cycles to busy-wait before executing the
+ *                          next instruction. A value of 0 means no waiting, allowing
+ *                          immediate execution of the next instruction.
  */
-void AConsole::runProcess(int coreID, int quantum_cycles) {
+void AConsole::runProcess(int coreID, int quantum_cycles, int delaysPerExec) {
     this->coreID = coreID;
     getCurrentTime();
     status = RUNNING;
@@ -41,14 +49,20 @@ void AConsole::runProcess(int coreID, int quantum_cycles) {
     int executedInstructions = 0;
 
     while (isActive && instructionLine < instructionTotal) {
-        int randomDelay = dist(knuth_gen);
+        if (delaysPerExec > 0) {
+            for (int delay = 0; delay < delaysPerExec; ++delay) {
+                // This loop simulates the busy-waiting delay
+            }
+        }
 
         if (quantum_cycles > 0 && executedInstructions >= quantum_cycles) {
             status = WAITING;
             break;
         }
 
-        this_thread::sleep_for(chrono::milliseconds(randomDelay));
+        // Introduce a random delay for realism, so everything won't be instant
+        this_thread::sleep_for(chrono::milliseconds(dist(knuth_gen)));
+
         instructionLine++;
         executedInstructions++;
     }

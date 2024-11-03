@@ -21,7 +21,7 @@ class AConsole {
 
         AConsole(const string& name, int instructionTotal);
 
-        void runProcess(int coreID, int quantum_cycles);
+        void runProcess(int coreID, int quantum_cycles, int delaysPerExec);
 
         string getName() const;
         string getTimestamp() const;
