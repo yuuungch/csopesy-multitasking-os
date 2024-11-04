@@ -130,7 +130,7 @@ void checkCommand(const vector<string>& commandBuffer) {
         if (command == "initialize") {
             cout << "Menu initialized.\n";
             consoles.initialize();
-            consoles.testConfig();
+            // consoles.testConfig();
             isInitialized = true;
         }
         else if (command == "screen" || command == "scheduler-test" || command == "scheduler-stop" || command == "report-util") {
@@ -171,7 +171,7 @@ int main() {
     vector<string> commandBuffer;
     string command;
 
-    consoles.testConfig();
+    // consoles.testConfig();
 
     displayHeader();
 
