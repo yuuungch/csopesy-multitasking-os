@@ -4,7 +4,7 @@ Group 10 Members:
 - Argamosa, Daniel Cedric S.
 - Guerra, Jose M. A.
 - Wong, Krizchelle Danielle A.
-- Yung Cheng, Adrian U.Y.
+- Yung Cheng, Adrian U.
 
 Instructions for Running the Program:
 
