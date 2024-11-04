@@ -23,7 +23,7 @@ const uint64_t MAX_VALUE = 4294967296;
 
 bool scheduler_test_run = false;
 
-ConsoleManager::ConsoleManager() {
+void ConsoleManager::initialize() {
 
 	readConfig("config.txt");
 

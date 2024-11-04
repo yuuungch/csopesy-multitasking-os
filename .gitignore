@@ -396,3 +396,5 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+/CSOPESY_Group10_MO1/x64/Debug/CSOPESY_Group10_MO1.exe
+/CSOPESY_Group10_MO1/x64/Debug/CSOPESY_Group10_MO1.pdb

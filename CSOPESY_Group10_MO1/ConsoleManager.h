@@ -23,7 +23,7 @@ private:
     mutex processMutex;
 
 public:
-    ConsoleManager(); // default constructor
+    void initialize();
     void addConsole(const string& name, bool fromScreenCommand);
     void readConfig(const string& filename);
     void testConfig();
