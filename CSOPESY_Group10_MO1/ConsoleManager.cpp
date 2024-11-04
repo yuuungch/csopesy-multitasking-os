@@ -511,7 +511,7 @@ void ConsoleManager::schedulerTest(bool set_scheduler) {
 
 void ConsoleManager::schedulerFCFS() {
     while (true) {
-        this_thread::sleep_for(chrono::milliseconds(100));
+        this_thread::sleep_for(chrono::milliseconds(10));
 
         lock_guard<mutex> lock(processMutex);
 
@@ -540,7 +540,7 @@ void ConsoleManager::schedulerFCFS() {
 
 void ConsoleManager::schedulerRR() {
     while (true) {
-        this_thread::sleep_for(chrono::milliseconds(100));
+        this_thread::sleep_for(chrono::milliseconds(10));
 
         lock_guard<mutex> lock(processMutex);
 
