@@ -44,7 +44,7 @@ void AConsole::runProcess(int coreID, int quantum_cycles, int delaysPerExec) {
 
     random_device rd;
     knuth_b knuth_gen(rd());
-    uniform_int_distribution<> dist(20, 200);
+    uniform_int_distribution<> dist(10, 20);
 
     int executedInstructions = 0;
 
