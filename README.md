@@ -2,7 +2,7 @@ CSOPESY MO1 - Process Multiplexer and CLI
 
 Group 10 Members:
 - Argamosa, Daniel Cedric S.
-- Guerra, Jose M. A.
+- Guerra, Jose Maria Angelo C.
 - Wong, Krizchelle Danielle A.
 - Yung Cheng, Adrian U.
 
