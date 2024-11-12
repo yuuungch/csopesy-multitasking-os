@@ -123,34 +123,32 @@ void MemoryManager::generateSnapshot(int quantumCycle) const {
     size_t maxProcessesInMemory = totalMemory / memPerProc;
 
     // Memory Layout Representation
-    size_t currentAddress = totalMemory;  
-    size_t processesDisplayed = 0;  
+    size_t processesDisplayed = 0;
 
     // Iterate over memoryFrames and show allocated memory addresses
     for (int i = 0; i < memoryFrames.size(); ++i) {
         if (memoryFrames[i].isOccupied && processesDisplayed < maxProcessesInMemory) {
             int processID = memoryFrames[i].processID;
 
-            // Print the upper boundary
-            file << currentAddress << "\n";
+            // Print the upper boundary (current address)
+            size_t processStartAddress = totalMemory - (i * frameSize); // Memory address where the process starts
+            size_t processEndAddress = processStartAddress - memPerProc;  // End address of the process in memory
 
-            // Display the process ID
-            file << "P" << processID << "\n";
-
-            // Print the lower boundary
-            file << currentAddress - memPerProc << "\n\n";
+            // Write the boundaries to the file
+            file << processStartAddress << "\n"; // Upper boundary
+            file << "P" << processID << "\n";  // Process ID
+            file << processEndAddress << "\n\n"; // Lower boundary
 
             // Skip the frames occupied by this process (i.e., skip memPerProc / frameSize frames)
             size_t framesToSkip = memPerProc / frameSize;
-            i += framesToSkip - 1; 
+            i += framesToSkip - 1;
 
-            // Move current address down by the size of a process
-            currentAddress -= memPerProc; 
             processesDisplayed++;
 
             if (processesDisplayed >= maxProcessesInMemory) break;
         }
     }
+
 
     file << "----start---- = 0\n";
     file.close();
@@ -189,25 +187,44 @@ std::string MemoryManager::getCurrentTime() const {
 
 // Calculate external fragmentation in the system
 int MemoryManager::calculateExternalFragmentation() const {
-    std::unordered_set<int> uniqueProcesses;
-    int totalMemoryUsed = 0;
+    /* int totalFragmentation = 0;
+    size_t currentGapSize = 0;  // Tracks the size of the current gap between processes
 
-    // Count unique process IDs in memory and calculate memory they occupy
+    // Iterate through memory frames and calculate gaps between allocated blocks
+    bool insideAllocatedBlock = false;  // Tracks whether we are inside an allocated block
+
     for (const auto& frame : memoryFrames) {
         if (frame.isOccupied) {
-            uniqueProcesses.insert(frame.processID);
+            if (insideAllocatedBlock) {
+                // If we're inside an allocated block, continue
+                continue;
+            }
+            else {
+                // We're at the start of an allocated block, end the current gap
+                if (currentGapSize > 0) {
+                    totalFragmentation += currentGapSize;
+                    currentGapSize = 0;  // Reset the gap size
+                }
+                insideAllocatedBlock = true;  // Now inside an allocated block
+            }
+        }
+        else {
+            // If we're outside an allocated block, count the gap size
+            if (insideAllocatedBlock) {
+                currentGapSize += frameSize;  // Increment gap size
+            }
         }
     }
 
-    totalMemoryUsed = uniqueProcesses.size() * memPerProc;
+    // If there was any gap at the end of memory after the last process
+    if (currentGapSize > 0) {
+        totalFragmentation += currentGapSize;
+    }
 
-    int fragmentationKB = totalMemory - totalMemoryUsed;
-
-    // Ensure fragmentation is not negative
-    if (fragmentationKB < 0) fragmentationKB = 0;
-
-    return fragmentationKB; 
+    return totalFragmentation; */
+    return 0;
 }
+
 
 int MemoryManager::calculateNumberofProcesses() const {
     std::unordered_set<int> uniqueProcesses;

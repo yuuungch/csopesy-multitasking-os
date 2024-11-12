@@ -1,0 +1,23 @@
+Timestamp: (11/12/2024 09:42:01PM)
+Number of processes in memory: 4
+Total external fragmentation in KB: 0
+
+----end---- = 16384
+
+16384
+P37
+12288
+
+12288
+P38
+8192
+
+8192
+P35
+4096
+
+4096
+P36
+0
+
+----start---- = 0

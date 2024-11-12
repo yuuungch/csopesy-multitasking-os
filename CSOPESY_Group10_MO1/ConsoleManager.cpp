@@ -188,7 +188,7 @@ void ConsoleManager::addConsole(const string& name, bool fromScreenCommand = fal
     newConsole->setProcessID(processId);  // Ensure the process ID is properly set
     newConsole->setInstructionLine(0);  // Start at instruction line 0
 
-    size_t processesInMemory = (memoryManager->getTotalMemory() - memoryManager->calculateExternalFragmentation()) / memoryManager->getMemPerProc();
+    size_t processesInMemory = memoryManager->calculateNumberofProcesses();
     size_t maxProcessesInMemory = memoryManager->getTotalMemory() / memoryManager->getMemPerProc();
 
     // Try to allocate memory for the new console
@@ -597,7 +597,7 @@ void ConsoleManager::schedulerRR() {
         lock_guard<mutex> lock(processMutex);
 
         // Check if there's room in the memory, and if so, move the next process from waitingQueue to memoryQueue
-        size_t processesInMemory = (memoryManager->getTotalMemory() - memoryManager->calculateExternalFragmentation()) / memoryManager->getMemPerProc();
+        size_t processesInMemory = memoryManager->calculateNumberofProcesses();
         size_t maxProcessesInMemory = memoryManager->getTotalMemory() / memoryManager->getMemPerProc();
 
         if (processesInMemory < maxProcessesInMemory && !waitingQueue.empty()) {
