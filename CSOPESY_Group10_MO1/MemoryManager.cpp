@@ -123,48 +123,36 @@ void MemoryManager::generateSnapshot(int quantumCycle) const {
     // Calculate the maximum number of processes that can fit in memory
     size_t maxProcessesInMemory = totalMemory / memPerProc;
 
-    bool hasOccupiedFrames = false;
-    for (const auto& frame : memoryFrames) {
-        if (frame.isOccupied) {
-            hasOccupiedFrames = true;
-            break;
-        }
-    }
-
-    if (hasOccupiedFrames) {
-        file << totalMemory << "\n";
-    }
-    else {
-        file << "No processes currently in memory.\n";
-    }
-
     // Memory Layout Representation
-    size_t currentAddress = totalMemory;  // Start from the top of memory
-    size_t processesDisplayed = 0;  // Counter to track how many processes we've displayed
+    size_t currentAddress = totalMemory;  
+    size_t processesDisplayed = 0;  
 
     // Iterate over memoryFrames and show allocated memory addresses
     for (int i = 0; i < memoryFrames.size(); ++i) {
         if (memoryFrames[i].isOccupied && processesDisplayed < maxProcessesInMemory) {
             int processID = memoryFrames[i].processID;
 
-            // Display the process only once per its memory allocation
-            file << "P" << processID << "\n";  // Print the process ID
-            file << currentAddress - memPerProc << "\n";  // Print the lower boundary of allocated memory
+            // Print the upper boundary
+            file << currentAddress << "\n";
+
+            // Display the process ID
+            file << "P" << processID << "\n";
+
+            // Print the lower boundary
+            file << currentAddress - memPerProc << "\n\n";
 
             // Skip the frames occupied by this process (i.e., skip memPerProc / frameSize frames)
             size_t framesToSkip = memPerProc / frameSize;
-            i += framesToSkip - 1;  // Skip over the remaining frames of this process
+            i += framesToSkip - 1; 
 
             // Move current address down by the size of a process
-            currentAddress -= memPerProc;  // Decrease by memPerProc for the next process
+            currentAddress -= memPerProc; 
             processesDisplayed++;
 
-            // Stop if we've displayed all possible processes
             if (processesDisplayed >= maxProcessesInMemory) break;
         }
     }
 
-    file << "\n";
     file << "----start---- = 0\n";
     file.close();
 }
