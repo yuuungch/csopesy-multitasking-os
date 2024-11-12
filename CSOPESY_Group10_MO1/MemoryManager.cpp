@@ -82,12 +82,11 @@ void MemoryManager::generateSnapshot(int quantumCycle) const {
     std::ofstream file("memory_stamp_" + std::to_string(quantumCycle) + ".txt");
 
     std::string timestamp = getCurrentTime();
-    int externalFragmentation = calculateExternalFragmentation();
 
     // Write the summary information
     file << "Timestamp: (" << timestamp << ")\n";
-    file << "Number of processes in memory: " << (totalMemory - externalFragmentation) / memPerProc << "\n";
-    file << "Total external fragmentation in KB: " << externalFragmentation << "\n";
+    file << "Number of processes in memory: " << calculateNumberofProcesses() << "\n";
+    file << "Total external fragmentation in KB: " << calculateExternalFragmentation() << "\n";
     file << "\n----end---- = " << totalMemory << "\n\n";
 
     /*size_t occupiedMemory = 0;
@@ -208,6 +207,20 @@ int MemoryManager::calculateExternalFragmentation() const {
     if (fragmentationKB < 0) fragmentationKB = 0;
 
     return fragmentationKB; 
+}
+
+int MemoryManager::calculateNumberofProcesses() const {
+    std::unordered_set<int> uniqueProcesses;
+
+    // Count unique process IDs in memory
+    for (const auto& frame : memoryFrames) {
+        if (frame.isOccupied) {
+            uniqueProcesses.insert(frame.processID);  // Insert unique process IDs
+        }
+    }
+
+    // Return the count of unique processes
+    return uniqueProcesses.size();
 }
 
 size_t MemoryManager::getFrameSize() const {

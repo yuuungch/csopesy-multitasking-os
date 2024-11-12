@@ -33,6 +33,8 @@ class MemoryManager {
 
         int calculateExternalFragmentation() const;
 
+        int calculateNumberofProcesses() const;
+
         size_t getFrameSize() const;
         void setFrameSize(size_t frameSize);
 
