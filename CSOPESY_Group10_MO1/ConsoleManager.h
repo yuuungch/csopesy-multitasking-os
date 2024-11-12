@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "AConsole.h"
+#include "MemoryManager.h"
 
 using namespace std;
 
@@ -19,11 +20,13 @@ private:
     int availableCores;
     vector<bool> cpuCores;
     queue<AConsole*> waitingQueue;
+    queue<AConsole*> memoryQueue;
     map<string, thread> runningProcesses;
     mutex processMutex;
 
 public:
     void initialize();
+    bool isPowerOfTwo(const uint64_t n);
     void addConsole(const string& name, bool fromScreenCommand);
     void readConfig(const string& filename);
     void testConfig();

@@ -9,6 +9,7 @@
 #include <random>
 #include "ConsoleManager.h"
 #include "AConsole.h"
+#include "MemoryManager.h"
 
 using namespace std;
 
@@ -23,15 +24,25 @@ const uint64_t MAX_VALUE = 4294967296;
 
 bool scheduler_test_run = false;
 
+MemoryManager* memoryManager = nullptr;
+int max_overall_mem;
+int mem_per_frame;
+int mem_per_proc;
+
 void ConsoleManager::initialize() {
 
 	readConfig("config.txt");
+
+    memoryManager = new MemoryManager(max_overall_mem, mem_per_frame, mem_per_proc);
 
     coreCount = num_cpu;
     availableCores = num_cpu;
 
     cpuCores = vector<bool>(num_cpu, false);
-    startScheduler();
+}
+
+bool ConsoleManager::isPowerOfTwo(uint64_t n) {
+    return (n >= 2) && ((n & (n - 1)) == 0);
 }
 
 /*
@@ -101,6 +112,27 @@ void ConsoleManager::readConfig(const string& filename) {
                 return;
             }
         }
+        else if (key == "max-overall-mem") {
+            iss >> max_overall_mem;
+            if (max_overall_mem < 2 || max_overall_mem > MAX_VALUE || !isPowerOfTwo(max_overall_mem)) {
+                cerr << "Error: Invalid max-overall-mem value: " << max_overall_mem << ". Must be a power of 2 in range [2, " << MAX_VALUE << "].\n";
+                return;
+            }
+        }
+        else if (key == "mem-per-frame") {
+            iss >> mem_per_frame;
+            if (mem_per_frame < 2 || mem_per_frame > MAX_VALUE || !isPowerOfTwo(mem_per_frame)) {
+                cerr << "Error: Invalid mem-per-frame value: " << mem_per_frame << ". Must be a power of 2 in range [2, " << MAX_VALUE << "].\n";
+                return;
+            }
+        }
+        else if (key == "mem-per-proc") {
+            iss >> mem_per_proc;
+            if (mem_per_proc < 2 || mem_per_proc > MAX_VALUE || !isPowerOfTwo(mem_per_proc)) {
+                cerr << "Error: Invalid mem-per-proc value: " << mem_per_proc << ". Must be a power of 2 in range [2, " << MAX_VALUE << "].\n";
+                return;
+            }
+        }
         else {
             cerr << "Error: Unknown parameter in config file: " << key << endl;
             return;
@@ -120,6 +152,9 @@ void ConsoleManager::testConfig() {
     cout << "min-ins: " << min_ins << endl;
     cout << "max-ins: " << max_ins << endl;
     cout << "delays-per-exec: " << delays_per_exec << endl;
+    cout << "max-overall-mem: " << max_overall_mem << endl;
+    cout << "mem-per-frame: " << mem_per_frame << endl;
+    cout << "mem-per-proc: " << mem_per_proc << endl;
 }
 
 /*
@@ -140,24 +175,38 @@ void ConsoleManager::addConsole(const string& name, bool fromScreenCommand = fal
     static int nextId = 1;
     int processId = nextId++;  // Generate the next process ID
 
-	// Generate a random number of instructions between min_ins and max_ins
-	random_device rd;
-	knuth_b knuth_gen(rd());
-	uniform_int_distribution<> dist(min_ins, max_ins);
-	int maxInstructions = dist(knuth_gen);
-
+    // Generate a random number of instructions between min_ins and max_ins
+    random_device rd;
+    knuth_b knuth_gen(rd());
+    uniform_int_distribution<> dist(min_ins, max_ins);
+    int maxInstructions = dist(knuth_gen);
 
     // Create a new console with the provided name and max instructions
-    AConsole* newConsole = new AConsole(name, maxInstructions);
+    AConsole* newConsole = new AConsole(name, maxInstructions, memoryManager);
 
-    // Set the process ID using the setProcessID function
+    // Set the process ID and other properties
     newConsole->setProcessID(processId);  // Ensure the process ID is properly set
-
-    // Initialize additional details such as starting at instruction line 0
     newConsole->setInstructionLine(0);  // Start at instruction line 0
 
-    // Add the new console to the map and the waiting queue
-    waitingQueue.push(newConsole);
+    size_t processesInMemory = (memoryManager->getTotalMemory() - memoryManager->calculateExternalFragmentation()) / memoryManager->getMemPerProc();
+    size_t maxProcessesInMemory = memoryManager->getTotalMemory() / memoryManager->getMemPerProc();
+
+    // Try to allocate memory for the new console
+    if (waitingQueue.empty() && processesInMemory < maxProcessesInMemory) {
+        if (memoryManager->allocateMemory(newConsole->getProcessID())) {
+            memoryQueue.push(newConsole);
+            // cout << "Console " << newConsole->getName() << " allocated memory and added to memoryQueue." << endl;
+        }
+    }
+    else {
+        waitingQueue.push(newConsole);
+        // cout << "Added to waitingQueue: " << newConsole->getName() << endl;
+    }
+
+    // cout << "Number of processes in WaitingQueue: " << waitingQueue.size() << endl;
+    // cout << "Number of processes in MemoryQueue: " << memoryQueue.size() << endl;
+
+    // Add the new console to the consoles map
     consoles[name] = newConsole;
 
     // Check if the console was created using the screen -s command
@@ -166,8 +215,6 @@ void ConsoleManager::addConsole(const string& name, bool fromScreenCommand = fal
         displayConsole(name);
     }
 }
-
-
 /*
 * This function displays the information of the specified console
 * 
@@ -229,7 +276,7 @@ void ConsoleManager::listConsoles() {
     bool hasRunning = false;
     bool hasFinished = false;
 
-/*  cout << "Queued Processes:\n";
+  /*cout << "Queued Processes:\n";
     for (const auto& consolePair : consoles) {
         AConsole* console = consolePair.second;  
         // get all queued consoles
@@ -488,6 +535,8 @@ AConsole::Status ConsoleManager::getConsoleStatus(const string& name) const {
 void ConsoleManager::schedulerTest(bool set_scheduler) {
     scheduler_test_run = set_scheduler;
 
+    startScheduler();
+
     thread([this] {
         int cycles = 1;
         int i = 1;
@@ -539,16 +588,34 @@ void ConsoleManager::schedulerFCFS() {
 }
 
 void ConsoleManager::schedulerRR() {
+    int currentCycle = 0;
+    bool generatedFinalSnapshot = false;
+
     while (true) {
         this_thread::sleep_for(chrono::milliseconds(10));
 
         lock_guard<mutex> lock(processMutex);
 
-        for (int i = 0; i < cpuCores.size(); ++i) {
-            if (!cpuCores[i] && !waitingQueue.empty()) {
-                AConsole* nextProcess = waitingQueue.front();
-                waitingQueue.pop();
+        // Check if there's room in the memory, and if so, move the next process from waitingQueue to memoryQueue
+        size_t processesInMemory = (memoryManager->getTotalMemory() - memoryManager->calculateExternalFragmentation()) / memoryManager->getMemPerProc();
+        size_t maxProcessesInMemory = memoryManager->getTotalMemory() / memoryManager->getMemPerProc();
 
+        if (processesInMemory < maxProcessesInMemory && !waitingQueue.empty()) {
+            AConsole* nextWaitingProcess = waitingQueue.front();
+            waitingQueue.pop();
+
+            if (memoryManager->allocateMemory(nextWaitingProcess->getProcessID())) {
+                memoryQueue.push(nextWaitingProcess);
+            }
+        }
+
+        // Run processes on available CPU cores
+        for (int i = 0; i < cpuCores.size(); ++i) {
+            if (!cpuCores[i] && !memoryQueue.empty()) {
+                AConsole* nextProcess = memoryQueue.front();
+                memoryQueue.pop();
+
+                // Process in memory, run the process
                 cpuCores[i] = true;
                 availableCores--;
 
@@ -556,10 +623,11 @@ void ConsoleManager::schedulerRR() {
                     nextProcess->runProcess(i, quantum_cycles, delays_per_exec);
                     lock_guard<mutex> lock(processMutex);
 
-                    // If the process has not completed, requeue it
+                    // After execution, check if the process is still active
                     if (nextProcess->getIsActive() && nextProcess->getInstructionLine() < nextProcess->getInstructionTotal()) {
-                        waitingQueue.push(nextProcess);
+                        memoryQueue.push(nextProcess); // Requeue if still active (in memory)
                     }
+
                     cpuCores[i] = false;
                     availableCores++;
                     });
@@ -567,5 +635,22 @@ void ConsoleManager::schedulerRR() {
                 runningProcesses[nextProcess->getName()].detach();
             }
         }
+
+        currentCycle++;
+
+        if (currentCycle % quantum_cycles == 0) {
+            if (processesInMemory != 0) {
+                memoryManager->generateSnapshot(currentCycle);
+                generatedFinalSnapshot = false;  
+            }
+            else if (!generatedFinalSnapshot) {
+                memoryManager->generateSnapshot(currentCycle);
+                generatedFinalSnapshot = true;
+            }
+        }
+
     }
 }
+
+
+

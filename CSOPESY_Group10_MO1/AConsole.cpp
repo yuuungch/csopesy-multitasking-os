@@ -14,8 +14,9 @@ static int processCounter = 0;
 * @param name - the name of the console
 * @param instructionTotal - the total number of instructions
 */
-AConsole::AConsole(const std::string& name, int instructionTotal)
-    : name(name), processID(++processCounter), instructionLine(0), instructionTotal(instructionTotal), isActive(true), status(WAITING), coreID(-1), timestamp(getCurrentTime()) {}
+AConsole::AConsole(const string& name, int instructionTotal, MemoryManager* memManager)
+    : name(name), processID(++processCounter), instructionLine(0), instructionTotal(instructionTotal),
+    isActive(true), status(WAITING), coreID(-1), timestamp(getCurrentTime()), memoryManager(memManager) {}
 
 /*
  * This function simulates the execution of a process on a specified CPU core.
@@ -51,7 +52,7 @@ void AConsole::runProcess(int coreID, int quantum_cycles, int delaysPerExec) {
     while (isActive && instructionLine < instructionTotal) {
         if (delaysPerExec > 0) {
             for (int delay = 0; delay < delaysPerExec; ++delay) {
-                // This loop simulates the busy-waiting delay
+                // Simulate busy-wait delay
             }
         }
 
@@ -60,7 +61,7 @@ void AConsole::runProcess(int coreID, int quantum_cycles, int delaysPerExec) {
             break;
         }
 
-        // Introduce a random delay for realism, so everything won't be instant
+        // Introduce a random delay for realism
         this_thread::sleep_for(chrono::milliseconds(dist(knuth_gen)));
 
         instructionLine++;
@@ -68,7 +69,9 @@ void AConsole::runProcess(int coreID, int quantum_cycles, int delaysPerExec) {
     }
 
     if (instructionLine == instructionTotal) {
+        // cout << "Process " << this->getName() << " has finished execution and is being terminated." << endl;
         status = TERMINATED;
+        memoryManager->freeMemory(this->getProcessID());
     }
 }
 
