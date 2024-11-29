@@ -3,6 +3,8 @@
 #include <string>
 #include <unordered_set>
 #include <ctime>
+#include <unordered_map>
+
 
 class MemoryManager {
 private:
@@ -21,6 +23,8 @@ private:
 
     
     std::string getCurrentTime() const;  // For generating snapshots
+    std::unordered_map<int, std::vector<int>> backingStore; // Backing store for swapped-out pages
+
 
 public:
     // Constructor to initialize memory parameters
@@ -62,4 +66,7 @@ public:
 
     const std::string getAllocationType() const;
     void setAllocationType(const std::string& type);
+
+    void moveToBackingStore(int processID);
+    void restoreFromBackingStore(int processID);
 };

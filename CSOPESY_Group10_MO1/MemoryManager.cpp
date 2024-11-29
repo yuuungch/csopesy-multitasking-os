@@ -27,10 +27,9 @@ size_t pagedInCount = 0;
 size_t pagedOutCount = 0;
 // Allocate memory for a process using the first-fit method.
 bool MemoryManager::allocateMemory(int processID) {
-
     // Determine a random memory size for the process between min and max memory required
     size_t processMemory = min_mem_per_proc + rand() % (max_mem_per_proc - min_mem_per_proc + 1);
-    size_t requiredPages = processMemory / mem_per_frame;
+    size_t requiredPages = (processMemory + mem_per_frame - 1) / mem_per_frame; // Correctly calculate required pages
 
     // Ensure we have enough memory to allocate the process
     if (requiredPages * mem_per_frame > max_overall_mem) {
@@ -44,7 +43,10 @@ bool MemoryManager::allocateMemory(int processID) {
         if (startFrame == -1) {
             // If no free frames are available, we need to swap out an old process to the backing store
             int oldestProcessID = findOldestProcess();
-            freeMemory(oldestProcessID);
+            if (oldestProcessID != -1) {
+                moveToBackingStore(oldestProcessID); // Move oldest process to backing store
+                freeMemory(oldestProcessID);        // Free its memory in physical frames
+            }
 
             // Try to allocate memory again after swapping out
             startFrame = findFreeFrames(requiredPages);
@@ -53,16 +55,20 @@ bool MemoryManager::allocateMemory(int processID) {
             }
         }
 
+        // Restore from backing store if process was previously swapped out
+        if (backingStore.find(processID) != backingStore.end()) {
+            restoreFromBackingStore(processID); // Restore pages for the process
+        }
+
         // Allocate memory for the process (load the pages into memory)
         for (size_t i = startFrame; i < startFrame + requiredPages; ++i) {
             memoryFrames[i] = { processID, true, std::time(0) }; // Mark the page as occupied and set lastAccessed timestamp
             pagedInCount++;
         }
-
     }
     else { // Flat memory allocation
         // Flat allocation logic: Process memory must fit within contiguous frames
-        size_t requiredFrames = processMemory / mem_per_frame;
+        size_t requiredFrames = (processMemory + mem_per_frame - 1) / mem_per_frame;
 
         // Ensure process memory doesn't exceed the available space
         if (requiredFrames * mem_per_frame > max_overall_mem) {
@@ -75,7 +81,10 @@ bool MemoryManager::allocateMemory(int processID) {
         if (startFrame == -1) {
             // If no contiguous space is available, swap out the oldest process
             int oldestProcessID = findOldestProcess();
-            freeMemory(oldestProcessID);
+            if (oldestProcessID != -1) {
+                moveToBackingStore(oldestProcessID); // Move oldest process to backing store
+                freeMemory(oldestProcessID);        // Free its memory in physical frames
+            }
 
             // Try again after swapping out
             startFrame = findFreeFrames(requiredFrames);
@@ -96,22 +105,27 @@ bool MemoryManager::allocateMemory(int processID) {
 
 
 
-// Free memory for a process
 void MemoryManager::freeMemory(int processID) {
     size_t freedPages = 0;  // Track the number of freed pages
-    for (auto& frame : memoryFrames) {
-        //std::cout << "Freed " << freedPages << " pages for Process ID: " << processID << "\n";
-        if (frame.processID == processID) {
-            frame.isOccupied = false;   // Mark the frame as unoccupied
-            frame.processID = -1;      // Clear the process ID
-            frame.lastAccessed = 0;    // Reset the last accessed timestamp
-            freedPages++;              // Increment freedPages counter
+    std::vector<int> swappedPages; // Store indices of swapped-out pages
+
+    for (size_t i = 0; i < memoryFrames.size(); ++i) {
+        if (memoryFrames[i].processID == processID) {
+            swappedPages.push_back(i);  // Add page index to swapped pages
+            memoryFrames[i] = { -1, false, 0 }; // Mark the frame as free
+            freedPages++;
         }
+    }
+
+    // Move the process's pages to the backing store
+    if (!swappedPages.empty()) {
+        backingStore[processID] = swappedPages;
+        //std::cout << "Process " << processID << " moved to backing store with "
+            //<< swappedPages.size() << " pages.\n";
     }
 
     // Update the total paged-out count if tracking paging statistics
     pagedOutCount += freedPages;
-
 }
 
 
@@ -276,4 +290,78 @@ size_t MemoryManager::calculateUsedMemory() const {
     }
 
     return totalUsedMemory;
+}
+
+void MemoryManager::moveToBackingStore(int processID) {
+    std::vector<int> swappedPages;
+
+    // Iterate through memory frames and move process pages to backing store
+    for (size_t i = 0; i < memoryFrames.size(); ++i) {
+        if (memoryFrames[i].processID == processID) {
+            swappedPages.push_back(i); // Save frame index for the process
+            memoryFrames[i] = { -1, false, 0 }; // Mark frame as free
+        }
+    }
+
+    if (!swappedPages.empty()) {
+        backingStore[processID] = swappedPages;
+
+        // Write the swapped pages to a file
+        std::ofstream file("backing_store_" + std::to_string(processID) + ".txt");
+        if (file.is_open()) {
+            file << "Process ID: " << processID << "\n";
+            file << "Swapped Pages:\n";
+            for (int pageIndex : swappedPages) {
+                file << pageIndex << "\n";
+            }
+            file.close();
+        }
+        else {
+            std::cerr << "Error: Unable to create backing store file for Process " << processID << ".\n";
+        }
+    }
+}
+void MemoryManager::restoreFromBackingStore(int processID) {
+    // Check if the process is in the in-memory backing store
+    if (backingStore.find(processID) == backingStore.end()) {
+
+        // Attempt to restore from file
+        std::ifstream file("backing_store_" + std::to_string(processID) + ".txt");
+        if (file.is_open()) {
+            std::vector<int> swappedPages;
+            std::string line;
+            while (std::getline(file, line)) {
+                if (isdigit(line[0])) { // Parse only numeric lines (page indices)
+                    swappedPages.push_back(std::stoi(line));
+                }
+            }
+            file.close();
+
+            // Restore the process pages into memory
+            for (int pageIndex : swappedPages) {
+                if (pageIndex >= 0 && pageIndex < memoryFrames.size()) {
+                    memoryFrames[pageIndex] = { processID, true, std::time(0) };
+                }
+            }
+
+
+            // Optionally delete the file after restoring
+            std::remove(("backing_store_" + std::to_string(processID) + ".txt").c_str());
+        }
+        else {
+            std::cerr << "Error: Backing store file not found for Process " << processID << ".\n";
+        }
+        return;
+    }
+
+    // Restore from in-memory backing store
+    std::vector<int> swappedPages = backingStore[processID];
+    backingStore.erase(processID);
+
+    for (int pageIndex : swappedPages) {
+        if (pageIndex >= 0 && pageIndex < memoryFrames.size()) {
+            memoryFrames[pageIndex] = { processID, true, std::time(0) };
+        }
+    }
+
 }
