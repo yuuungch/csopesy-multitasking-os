@@ -752,28 +752,48 @@ void ConsoleManager::schedulerRR() {
     }
 }
 void ConsoleManager::vmStat() const {
-    std::cout << "--------------------------------------------\n";
-    std::cout << "| VIRTUAL MEMORY STATISTICS               |\n";
-    std::cout << "--------------------------------------------\n";
-    std::cout << "Total Memory: " << memoryManager->getMaxOverallMem() << " KB\n";
-    std::cout << "Memory Per Frame: " << memoryManager->getMemPerFrame() << " KB\n";
+    mutex processMutex;
+    lock_guard<mutex> lock(processMutex);
 
+    // Memory statistics
+    size_t totalMemory = memoryManager->getMaxOverallMem();
     size_t usedMemory = memoryManager->calculateUsedMemory();
-    std::cout << "Used Memory: " << usedMemory << " KB\n";
-    std::cout << "Free Memory: " << (memoryManager->getMaxOverallMem() - usedMemory) << " KB\n";
+    size_t freeMemory = totalMemory - usedMemory;
 
-    std::cout << "\nProcess Memory Usage:\n";
-    std::cout << "--------------------------------------------\n";
-    std::cout << std::setw(10) << "Process Name " << std::setw(10) << "Memory (KB)\n";
-    std::cout << "--------------------------------------------\n";
-
-    for (const auto& consolePair : consoles) {
-        AConsole* console = consolePair.second;
-        size_t memoryUsed = memoryManager->getProcessMemory(console->getProcessID());
-        if (memoryUsed > 0) {
-            std::cout << std::setw(15) << console->getName() << std::setw(10) << memoryUsed << "\n";
+    // CPU ticks
+    size_t idleTicks = 0;
+    size_t activeTicks = 0;
+    size_t totalTicks = 0;
+    for (const auto& core : cpuCores) {
+        if (core) { // Core is active
+            activeTicks++;
+        }
+        else { // Core is idle
+            idleTicks++;
         }
     }
+    totalTicks = idleTicks + activeTicks;
 
-    std::cout << "--------------------------------------------\n";
+    // Paging statistics
+    size_t numPagedIn = memoryManager->getPagedInCount();
+    size_t numPagedOut = memoryManager->getPagedOutCount();
+
+    // Display the statistics
+    cout << "--------------------------------------------\n";
+    cout << "| VIRTUAL MEMORY STATISTICS               |\n";
+    cout << "--------------------------------------------\n";
+    cout << "Total Memory (KB): " << totalMemory << "\n";
+    cout << "Used Memory (KB): " << usedMemory << "\n";
+    cout << "Free Memory (KB): " << freeMemory << "\n";
+    cout << "--------------------------------------------\n";
+    cout << "CPU Statistics:\n";
+    cout << "Idle CPU Ticks: " << idleTicks << "\n";
+    cout << "Active CPU Ticks: " << activeTicks << "\n";
+    cout << "Total CPU Ticks: " << totalTicks << "\n";
+    cout << "--------------------------------------------\n";
+    cout << "Paging Statistics:\n";
+    cout << "Number of Pages Paged In: " << numPagedIn << "\n";
+    cout << "Number of Pages Paged Out: " << numPagedOut << "\n";
+    cout << "--------------------------------------------\n";
 }
+

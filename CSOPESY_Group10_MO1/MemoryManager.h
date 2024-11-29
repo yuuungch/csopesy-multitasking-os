@@ -20,6 +20,8 @@ private:
     size_t min_mem_per_proc; // Minimum memory required for each process
     size_t max_mem_per_proc; // Maximum memory allowed for each process
     std::string allocationType;  // Allocation type: "flat" or "paging"
+    size_t pagedInCount = 0;
+    size_t pagedOutCount = 0;
 
     
     std::string getCurrentTime() const;  // For generating snapshots
@@ -59,7 +61,6 @@ public:
     void setMinMemPerProc(size_t minMemPerProc);
 
     size_t getMaxMemPerProc() const;
-    void setMaxMemPerProc(size_t maxMemPerProc);
 
     const std::vector<Frame>& getMemoryFrames() const;
     void setMemoryFrames(const std::vector<Frame>& frames);

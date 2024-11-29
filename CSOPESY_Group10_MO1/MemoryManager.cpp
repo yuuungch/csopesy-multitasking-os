@@ -4,6 +4,8 @@
 #include <ctime>
 #include <cstdlib>
 
+using namespace std;
+
 // Constructor: initializes memory frames based on total memory size and frame size.
 MemoryManager::MemoryManager(size_t max_overall_mem, size_t mem_per_frame, size_t min_mem_per_proc, size_t max_mem_per_proc)
     :
@@ -23,8 +25,6 @@ MemoryManager::MemoryManager(size_t max_overall_mem, size_t mem_per_frame, size_
     }
 }
 
-size_t pagedInCount = 0;
-size_t pagedOutCount = 0;
 // Allocate memory for a process using the first-fit method.
 bool MemoryManager::allocateMemory(int processID) {
     // Determine a random memory size for the process between min and max memory required
@@ -104,29 +104,39 @@ bool MemoryManager::allocateMemory(int processID) {
 }
 
 
-
 void MemoryManager::freeMemory(int processID) {
-    size_t freedPages = 0;  // Track the number of freed pages
-    std::vector<int> swappedPages; // Store indices of swapped-out pages
+    size_t freedPages = 0; // Track the number of pages freed
 
-    for (size_t i = 0; i < memoryFrames.size(); ++i) {
-        if (memoryFrames[i].processID == processID) {
-            swappedPages.push_back(i);  // Add page index to swapped pages
-            memoryFrames[i] = { -1, false, 0 }; // Mark the frame as free
-            freedPages++;
+    for (auto& frame : memoryFrames) {
+        std::cout << "Frame process ID: " << frame.processID << ", Target process ID: " << processID << "\n";
+
+        if (frame.processID == processID) {
+            frame.isOccupied = false;  // Mark frame as free
+            frame.processID = -1;      // Reset the process ID
+            frame.lastAccessed = 0;    // Clear last accessed time
+            freedPages++;              // Increment the count of freed pages
         }
+    }
+    //cout << freedPages << endl;
+    if (freedPages > 0) {
+        pagedOutCount += freedPages; // Update the total number of pages paged out
     }
 
     // Move the process's pages to the backing store
-    if (!swappedPages.empty()) {
-        backingStore[processID] = swappedPages;
-        //std::cout << "Process " << processID << " moved to backing store with "
-            //<< swappedPages.size() << " pages.\n";
+    std::vector<int> swappedPages;
+    for (size_t i = 0; i < memoryFrames.size(); ++i) {
+        if (memoryFrames[i].processID == -1) {
+            swappedPages.push_back(i);
+        }
     }
 
-    // Update the total paged-out count if tracking paging statistics
-    pagedOutCount += freedPages;
+    if (!swappedPages.empty()) {
+        backingStore[processID] = swappedPages;
+        // Optional: Log this action
+        //std::cout << "Process " << processID << " moved to backing store. Pages freed: " << freedPages << "\n";
+    }
 }
+
 
 
 size_t MemoryManager::getPagedInCount() const { return pagedInCount; }
