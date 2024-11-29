@@ -76,7 +76,6 @@ void MemoryManager::freeMemory(int processID) {
     }
 }
 
-
 // Generate a snapshot of the current memory status, saving it to a file.
 void MemoryManager::generateSnapshot(int quantumCycle) const {
     std::ofstream file("memory_stamp_" + std::to_string(quantumCycle) + ".txt");

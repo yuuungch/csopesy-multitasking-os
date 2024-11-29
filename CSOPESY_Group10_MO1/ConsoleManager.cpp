@@ -569,15 +569,31 @@ void ConsoleManager::schedulerTest(bool set_scheduler) {
 }
 
 void ConsoleManager::schedulerFCFS() {
+    int cycleCount = 0;
+
     while (true) {
         this_thread::sleep_for(chrono::milliseconds(10));
 
         lock_guard<mutex> lock(processMutex);
 
+        size_t processesInMemory = memoryManager->calculateNumberofProcesses();
+        size_t maxProcessesInMemory = memoryManager->getMaxOverallMem() / memoryManager->getMinMemPerProc();
+
+        if (processesInMemory < maxProcessesInMemory && !waitingQueue.empty()) {
+            AConsole* nextWaitingProcess = waitingQueue.front();
+            waitingQueue.pop();
+
+            // Allocate memory for the next process
+            if (memoryManager->allocateMemory(nextWaitingProcess->getProcessID())) {
+                // If memory allocation is successful, add process to memoryQueue
+                memoryQueue.push(nextWaitingProcess);
+            }
+        }
+
         for (int i = 0; i < cpuCores.size(); ++i) {
-            if (!cpuCores[i] && !waitingQueue.empty()) {
-                AConsole* nextProcess = waitingQueue.front();
-                waitingQueue.pop();
+            if (!cpuCores[i] && !memoryQueue.empty()) {
+                AConsole* nextProcess = memoryQueue.front();
+                memoryQueue.pop();
 
                 cpuCores[i] = true;
                 availableCores--;
@@ -585,15 +601,23 @@ void ConsoleManager::schedulerFCFS() {
                 runningProcesses[nextProcess->getName()] = thread([this, nextProcess, i]() {
                     nextProcess->runProcess(i, 0, delays_per_exec);
                     lock_guard<mutex> lock(processMutex);
+
+                    if (nextProcess->getIsActive() && nextProcess->getInstructionLine() < nextProcess->getInstructionTotal()) {
+                        memoryQueue.push(nextProcess); 
+                    }
+
                     cpuCores[i] = false;
-					availableCores++;
+                    availableCores++;
                     });
 
                 runningProcesses[nextProcess->getName()].detach();
             }
         }
 
-        
+        cycleCount++;
+        if (cycleCount % 5 == 0) {
+            memoryManager->generateSnapshot(cycleCount);
+        }
     }
 }
 
@@ -661,6 +685,3 @@ void ConsoleManager::schedulerRR() {
 
     }
 }
-
-
-
