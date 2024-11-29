@@ -5,45 +5,51 @@
 #include <iostream>
 
 class MemoryManager {
-    private:
+private:
     struct Frame {
         int processID;
         bool isOccupied;
     };
 
     std::vector<Frame> memoryFrames;
-    size_t frameSize;
-    size_t totalMemory;
-    size_t memPerProc;
+    size_t max_overall_mem;  // Total memory available for all processes
+    size_t mem_per_frame;    // Size of each memory frame
+    size_t min_mem_per_proc; // Minimum memory required for each process
+    size_t max_mem_per_proc; // Maximum memory allowed for each process
 
     int findFreeFrames(size_t requiredFrames) const;
     std::string getCurrentTime() const;
 
-    public:
-        MemoryManager(size_t memorySize, size_t frameSize, size_t memPerProc);
+public:
+    // Constructor to initialize memory parameters
+    MemoryManager(size_t max_overall_mem, size_t mem_per_frame, size_t min_mem_per_proc, size_t max_mem_per_proc);
 
-        // memory allocation
-        bool allocateMemory(int processID);
+    // memory allocation
+    bool allocateMemory(int processID);
 
-        // free memory
-        void freeMemory(int processID);
+    // free memory
+    void freeMemory(int processID);
 
-        // for memory status
-        void generateSnapshot(int quantumCycle) const;
+    // for memory status
+    void generateSnapshot(int quantumCycle) const;
 
-        int calculateExternalFragmentation() const;
+    int calculateExternalFragmentation() const;
 
-        int calculateNumberofProcesses() const;
+    int calculateNumberofProcesses() const;
 
-        size_t getFrameSize() const;
-        void setFrameSize(size_t frameSize);
+    // Updated function names to reflect the new variable names
+    size_t getMaxOverallMem() const;
+    void setMaxOverallMem(size_t maxOverallMem);
 
-        size_t getTotalMemory() const;
-        void setTotalMemory(size_t totalMemory);
+    size_t getMemPerFrame() const;
+    void setMemPerFrame(size_t memPerFrame);
 
-        size_t getMemPerProc() const;
-        void setMemPerProc(size_t memPerProc);
+    size_t getMinMemPerProc() const;
+    void setMinMemPerProc(size_t minMemPerProc);
 
-        const std::vector<Frame>& getMemoryFrames() const;
-        void setMemoryFrames(const std::vector<Frame>& frames);
-   };
+    size_t getMaxMemPerProc() const;
+    void setMaxMemPerProc(size_t maxMemPerProc);
+
+    const std::vector<Frame>& getMemoryFrames() const;
+    void setMemoryFrames(const std::vector<Frame>& frames);
+};

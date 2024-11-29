@@ -4,9 +4,9 @@
 #include <ctime>
 
 // Constructor: initializes memory frames based on total memory size and frame size.
-MemoryManager::MemoryManager(size_t memorySize, size_t frameSize, size_t memPerProc)
-    : totalMemory(memorySize), frameSize(frameSize), memPerProc(memPerProc) {
-    size_t numFrames = memorySize / frameSize;
+MemoryManager::MemoryManager(size_t max_overall_mem, size_t mem_per_frame, size_t min_mem_per_proc, size_t max_mem_per_proc)
+    : max_overall_mem(max_overall_mem), mem_per_frame(mem_per_frame), min_mem_per_proc(min_mem_per_proc), max_mem_per_proc(max_mem_per_proc){
+    size_t numFrames = max_overall_mem / mem_per_frame;
     memoryFrames.resize(numFrames, { -1, false });  // Initialize frames as unoccupied
 }
 
@@ -28,10 +28,10 @@ bool MemoryManager::allocateMemory(int processID) {
     }
 
     // Calculate required number of frames for the process
-    size_t requiredFrames = memPerProc / frameSize;
+    size_t requiredFrames = min_mem_per_proc / mem_per_frame;
 
     // Ensure process does not exceed available memory
-    if (requiredFrames * frameSize > totalMemory) {
+    if (requiredFrames * mem_per_frame > max_overall_mem) {
         return false; // Not enough memory to allocate the process
     }
 
@@ -87,12 +87,12 @@ void MemoryManager::generateSnapshot(int quantumCycle) const {
     file << "Timestamp: (" << timestamp << ")\n";
     file << "Number of processes in memory: " << calculateNumberofProcesses() << "\n";
     file << "Total external fragmentation in KB: " << calculateExternalFragmentation() << "\n";
-    file << "\n----end---- = " << totalMemory << "\n\n";
+    file << "\n----end---- = " << max_overall_mem << "\n\n";
 
     /*size_t occupiedMemory = 0;
     for (const auto& frame : memoryFrames) {
         if (frame.isOccupied) {
-            occupiedMemory += frameSize;
+            occupiedMemory += mem_per_frame;
         }
     }
 
@@ -120,7 +120,7 @@ void MemoryManager::generateSnapshot(int quantumCycle) const {
 
 
     // Calculate the maximum number of processes that can fit in memory
-    size_t maxProcessesInMemory = totalMemory / memPerProc;
+    size_t maxProcessesInMemory = max_overall_mem / min_mem_per_proc;
 
     // Memory Layout Representation
     size_t processesDisplayed = 0;
@@ -131,16 +131,16 @@ void MemoryManager::generateSnapshot(int quantumCycle) const {
             int processID = memoryFrames[i].processID;
 
             // Print the upper boundary (current address)
-            size_t processStartAddress = totalMemory - (i * frameSize); // Memory address where the process starts
-            size_t processEndAddress = processStartAddress - memPerProc;  // End address of the process in memory
+            size_t processStartAddress = max_overall_mem - (i * mem_per_frame); // Memory address where the process starts
+            size_t processEndAddress = processStartAddress - min_mem_per_proc;  // End address of the process in memory
 
             // Write the boundaries to the file
             file << processStartAddress << "\n"; // Upper boundary
             file << "P" << processID << "\n";  // Process ID
             file << processEndAddress << "\n\n"; // Lower boundary
 
-            // Skip the frames occupied by this process (i.e., skip memPerProc / frameSize frames)
-            size_t framesToSkip = memPerProc / frameSize;
+            // Skip the frames occupied by this process (i.e., skip min_mem_per_proc / mem_per_frame frames)
+            size_t framesToSkip = min_mem_per_proc / mem_per_frame;
             i += framesToSkip - 1;
 
             processesDisplayed++;
@@ -211,7 +211,7 @@ int MemoryManager::calculateExternalFragmentation() const {
         else {
             // If we're outside an allocated block, count the gap size
             if (insideAllocatedBlock) {
-                currentGapSize += frameSize;  // Increment gap size
+                currentGapSize += mem_per_frame;  // Increment gap size
             }
         }
     }
@@ -240,28 +240,32 @@ int MemoryManager::calculateNumberofProcesses() const {
     return uniqueProcesses.size();
 }
 
-size_t MemoryManager::getFrameSize() const {
-    return frameSize;
+size_t MemoryManager::getMaxOverallMem() const {
+    return max_overall_mem;
 }
 
-void MemoryManager::setFrameSize(size_t frameSize) {
-    frameSize = frameSize;
+void MemoryManager::setMaxOverallMem(size_t max_overall_mem) {
+    max_overall_mem = max_overall_mem;
 }
 
-size_t MemoryManager::getTotalMemory() const {
-    return totalMemory;
+size_t MemoryManager::getMemPerFrame() const {               
+    return mem_per_frame;
 }
 
-void MemoryManager::setTotalMemory(size_t totalMemory) {
-    totalMemory = totalMemory;
+void MemoryManager::setMemPerFrame(size_t mem_per_frame) {
+    mem_per_frame = mem_per_frame;
 }
 
-size_t MemoryManager::getMemPerProc() const {
-    return memPerProc;
+size_t MemoryManager::getMinMemPerProc() const {
+    return min_mem_per_proc;
 }
 
-void MemoryManager::setMemPerProc(size_t memPerProc) {
-    memPerProc = memPerProc;
+void MemoryManager::setMinMemPerProc(size_t minMemPerProc) {
+    min_mem_per_proc = minMemPerProc;
+}
+
+size_t MemoryManager::getMaxMemPerProc() const {
+    return max_mem_per_proc;
 }
 
 const std::vector<MemoryManager::Frame>& MemoryManager::getMemoryFrames() const {

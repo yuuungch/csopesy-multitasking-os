@@ -27,13 +27,14 @@ bool scheduler_test_run = false;
 MemoryManager* memoryManager = nullptr;
 int max_overall_mem;
 int mem_per_frame;
-int mem_per_proc;
+int min_mem_per_proc;
+int max_mem_per_proc;
 
 void ConsoleManager::initialize() {
 
 	readConfig("config.txt");
 
-    memoryManager = new MemoryManager(max_overall_mem, mem_per_frame, mem_per_proc);
+    memoryManager = new MemoryManager(max_overall_mem, mem_per_frame, min_mem_per_proc, max_mem_per_proc);
 
     coreCount = num_cpu;
     availableCores = num_cpu;
@@ -126,10 +127,18 @@ void ConsoleManager::readConfig(const string& filename) {
                 return;
             }
         }
-        else if (key == "mem-per-proc") {
-            iss >> mem_per_proc;
-            if (mem_per_proc < 2 || mem_per_proc > MAX_VALUE || !isPowerOfTwo(mem_per_proc)) {
-                cerr << "Error: Invalid mem-per-proc value: " << mem_per_proc << ". Must be a power of 2 in range [2, " << MAX_VALUE << "].\n";
+        else if (key == "min-mem-per-proc") {
+            iss >> min_mem_per_proc;
+            if (min_mem_per_proc < 2 || min_mem_per_proc > MAX_VALUE || !isPowerOfTwo(min_mem_per_proc)) {
+                cerr << "Error: Invalid mem-per-proc value: " << min_mem_per_proc << ". Must be a power of 2 in range [2, " << MAX_VALUE << "].\n";
+                return;
+            }
+        }
+
+        else if (key == "max-mem-per-proc") {
+            iss >> max_mem_per_proc;
+            if (max_mem_per_proc < 2 || max_mem_per_proc > MAX_VALUE || !isPowerOfTwo(max_mem_per_proc)) {
+                cerr << "Error: Invalid mem-per-proc value: " << max_mem_per_proc << ". Must be a power of 2 in range [2, " << MAX_VALUE << "].\n";
                 return;
             }
         }
@@ -154,7 +163,8 @@ void ConsoleManager::testConfig() {
     cout << "delays-per-exec: " << delays_per_exec << endl;
     cout << "max-overall-mem: " << max_overall_mem << endl;
     cout << "mem-per-frame: " << mem_per_frame << endl;
-    cout << "mem-per-proc: " << mem_per_proc << endl;
+    cout << "min-mem-per-proc: " << min_mem_per_proc << endl;
+    cout << "max-mem-per-proc: " << max_mem_per_proc << endl;
 }
 
 /*
@@ -189,7 +199,7 @@ void ConsoleManager::addConsole(const string& name, bool fromScreenCommand = fal
     newConsole->setInstructionLine(0);  // Start at instruction line 0
 
     size_t processesInMemory = memoryManager->calculateNumberofProcesses();
-    size_t maxProcessesInMemory = memoryManager->getTotalMemory() / memoryManager->getMemPerProc();
+    size_t maxProcessesInMemory = memoryManager->getMaxOverallMem() / memoryManager->getMinMemPerProc();
 
     // Try to allocate memory for the new console
     if (waitingQueue.empty() && processesInMemory < maxProcessesInMemory) {
@@ -598,7 +608,7 @@ void ConsoleManager::schedulerRR() {
 
         // Check if there's room in the memory, and if so, move the next process from waitingQueue to memoryQueue
         size_t processesInMemory = memoryManager->calculateNumberofProcesses();
-        size_t maxProcessesInMemory = memoryManager->getTotalMemory() / memoryManager->getMemPerProc();
+        size_t maxProcessesInMemory = memoryManager->getMaxOverallMem() / memoryManager->getMinMemPerProc();
 
         if (processesInMemory < maxProcessesInMemory && !waitingQueue.empty()) {
             AConsole* nextWaitingProcess = waitingQueue.front();
