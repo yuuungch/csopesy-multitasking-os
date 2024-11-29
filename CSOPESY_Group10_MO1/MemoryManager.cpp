@@ -5,9 +5,20 @@
 
 // Constructor: initializes memory frames based on total memory size and frame size.
 MemoryManager::MemoryManager(size_t max_overall_mem, size_t mem_per_frame, size_t min_mem_per_proc, size_t max_mem_per_proc)
-    : max_overall_mem(max_overall_mem), mem_per_frame(mem_per_frame), min_mem_per_proc(min_mem_per_proc), max_mem_per_proc(max_mem_per_proc){
+    : max_overall_mem(max_overall_mem),
+    mem_per_frame(mem_per_frame),
+    min_mem_per_proc(min_mem_per_proc),
+    max_mem_per_proc(max_mem_per_proc)
+{
     size_t numFrames = max_overall_mem / mem_per_frame;
     memoryFrames.resize(numFrames, { -1, false });  // Initialize frames as unoccupied
+
+    if (max_overall_mem == mem_per_frame) {
+        allocationType = "paging";
+    }
+    else {
+        allocationType = "flat";
+    }
 }
 
 // Allocate memory for a process using the first-fit method.
@@ -186,44 +197,27 @@ std::string MemoryManager::getCurrentTime() const {
 
 // Calculate external fragmentation in the system
 int MemoryManager::calculateExternalFragmentation() const {
-    /* int totalFragmentation = 0;
-    size_t currentGapSize = 0;  // Tracks the size of the current gap between processes
+    int freeSlots = 0;
+    int largestContiguousBlock = 0;
+    int currentBlockSize = 0;
 
-    // Iterate through memory frames and calculate gaps between allocated blocks
-    bool insideAllocatedBlock = false;  // Tracks whether we are inside an allocated block
-
-    for (const auto& frame : memoryFrames) {
-        if (frame.isOccupied) {
-            if (insideAllocatedBlock) {
-                // If we're inside an allocated block, continue
-                continue;
-            }
-            else {
-                // We're at the start of an allocated block, end the current gap
-                if (currentGapSize > 0) {
-                    totalFragmentation += currentGapSize;
-                    currentGapSize = 0;  // Reset the gap size
-                }
-                insideAllocatedBlock = true;  // Now inside an allocated block
+    for (Frame frame : memoryFrames) {
+        if (!frame.isOccupied) { // If the slot is free
+            freeSlots++;
+            currentBlockSize++;
+            if (currentBlockSize > largestContiguousBlock) {
+                largestContiguousBlock = currentBlockSize;
             }
         }
         else {
-            // If we're outside an allocated block, count the gap size
-            if (insideAllocatedBlock) {
-                currentGapSize += mem_per_frame;  // Increment gap size
-            }
+            currentBlockSize = 0; // Reset block size when encountering an occupied slot
         }
     }
 
-    // If there was any gap at the end of memory after the last process
-    if (currentGapSize > 0) {
-        totalFragmentation += currentGapSize;
-    }
-
-    return totalFragmentation; */
-    return 0;
+    // External fragmentation: total free memory not in the largest contiguous block
+    int fragmentedMemory = (freeSlots - largestContiguousBlock) * mem_per_frame;
+    return fragmentedMemory > 0 ? fragmentedMemory : 0;
 }
-
 
 int MemoryManager::calculateNumberofProcesses() const {
     std::unordered_set<int> uniqueProcesses;
@@ -273,4 +267,14 @@ const std::vector<MemoryManager::Frame>& MemoryManager::getMemoryFrames() const 
 
 void MemoryManager::setMemoryFrames(const std::vector<MemoryManager::Frame>& frames) {
     memoryFrames = frames;
+}
+
+const std::string MemoryManager::getAllocationType() const {
+    return allocationType;
+}
+
+void MemoryManager::setAllocationType(const std::string& type) {
+    if (type == "flat" || type == "paging") {
+        allocationType = type;
+    }
 }

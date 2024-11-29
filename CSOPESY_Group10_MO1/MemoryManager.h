@@ -16,6 +16,7 @@ private:
     size_t mem_per_frame;    // Size of each memory frame
     size_t min_mem_per_proc; // Minimum memory required for each process
     size_t max_mem_per_proc; // Maximum memory allowed for each process
+    std::string allocationType;
 
     int findFreeFrames(size_t requiredFrames) const;
     std::string getCurrentTime() const;
@@ -52,4 +53,7 @@ public:
 
     const std::vector<Frame>& getMemoryFrames() const;
     void setMemoryFrames(const std::vector<Frame>& frames);
+
+    const std::string getAllocationType() const;        
+    void setAllocationType(const std::string& type); 
 };
