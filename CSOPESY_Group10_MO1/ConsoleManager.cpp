@@ -568,9 +568,35 @@ void ConsoleManager::schedulerTest(bool set_scheduler) {
     }).detach();
 }
 
-void ConsoleManager::schedulerFCFS() {
-    int cycleCount = 0;
+void ConsoleManager::processSMI() {
+    int cpuUtilization = 0;
+    int usedMemory = 0;
+    int maxOverallMemory = memoryManager->getMaxOverallMem();
+    int memoryUtilization = 0;
 
+    std::cout << "--------------------------------------------\n";
+    std::cout << "| PROCESS-SMI V01.00 Driver Version 01.00 | \n";
+    std::cout << "--------------------------------------------\n";
+    std::cout << "CPU-Util: " << cpuUtilization << "%\n";
+    std::cout << "Memory Usage: " << usedMemory << "/" << maxOverallMemory << "\n";
+    std::cout << "Memory-Util: " << memoryUtilization << "%" << "%\n";
+    std::cout << "============================================    \n";
+    std::cout << "Running processes and memory usage: \n";
+    std::cout << "--------------------------------------------\n";
+
+    // TODO: Display running processes and memory usage
+
+    // This does not yet have memory usage displayed
+    for (const auto& consolePair : consoles) {
+        AConsole* console = consolePair.second;
+        // get all running consoles
+        if (console->getStatus() == AConsole::RUNNING) {
+            cout << console->getName() + "\n";
+        }
+    }
+}
+
+void ConsoleManager::schedulerFCFS() {
     while (true) {
         this_thread::sleep_for(chrono::milliseconds(10));
 
@@ -613,17 +639,10 @@ void ConsoleManager::schedulerFCFS() {
                 runningProcesses[nextProcess->getName()].detach();
             }
         }
-
-        cycleCount++;
-        if (cycleCount % 5 == 0) {
-            memoryManager->generateSnapshot(cycleCount);
-        }
     }
 }
 
 void ConsoleManager::schedulerRR() {
-    int currentCycle = 0;
-    bool generatedFinalSnapshot = false;
 
     while (true) {
         this_thread::sleep_for(chrono::milliseconds(10));
@@ -667,19 +686,6 @@ void ConsoleManager::schedulerRR() {
                     });
 
                 runningProcesses[nextProcess->getName()].detach();
-            }
-        }
-
-        currentCycle++;
-
-        if (currentCycle % quantum_cycles == 0) {
-            if (processesInMemory != 0) {
-                memoryManager->generateSnapshot(currentCycle);
-                generatedFinalSnapshot = false;  
-            }
-            else if (!generatedFinalSnapshot) {
-                memoryManager->generateSnapshot(currentCycle);
-                generatedFinalSnapshot = true;
             }
         }
 

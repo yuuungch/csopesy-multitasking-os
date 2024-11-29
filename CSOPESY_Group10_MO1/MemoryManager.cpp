@@ -2,10 +2,12 @@
 #include <fstream>
 #include <iostream>
 #include <ctime>
+#include <cstdlib>
 
 // Constructor: initializes memory frames based on total memory size and frame size.
 MemoryManager::MemoryManager(size_t max_overall_mem, size_t mem_per_frame, size_t min_mem_per_proc, size_t max_mem_per_proc)
-    : max_overall_mem(max_overall_mem),
+    :
+    max_overall_mem(max_overall_mem),
     mem_per_frame(mem_per_frame),
     min_mem_per_proc(min_mem_per_proc),
     max_mem_per_proc(max_mem_per_proc)
@@ -24,165 +26,142 @@ MemoryManager::MemoryManager(size_t max_overall_mem, size_t mem_per_frame, size_
 // Allocate memory for a process using the first-fit method.
 bool MemoryManager::allocateMemory(int processID) {
 
-    // Check if the process is already in memory
-    bool isAlreadyAllocated = false;
-    for (const auto& frame : memoryFrames) {
-        if (frame.isOccupied && frame.processID == processID) {
-            isAlreadyAllocated = true;
-            break;
-        }
-    }
+    // Determine a random memory size for the process between min and max memory required
+    size_t processMemory = min_mem_per_proc + rand() % (max_mem_per_proc - min_mem_per_proc + 1);
+    size_t requiredPages = processMemory / mem_per_frame;
 
-    // If the process is already in memory, return true to avoid duplicate allocation
-    if (isAlreadyAllocated) {
-        return false;
-    }
-
-    // Calculate required number of frames for the process
-    size_t requiredFrames = min_mem_per_proc / mem_per_frame;
-
-    // Ensure process does not exceed available memory
-    if (requiredFrames * mem_per_frame > max_overall_mem) {
+    // Ensure we have enough memory to allocate the process
+    if (requiredPages * mem_per_frame > max_overall_mem) {
         return false; // Not enough memory to allocate the process
     }
 
-    // Find free frames for the process
-    int startFrame = findFreeFrames(requiredFrames);
+    if (allocationType == "paging") {
+        // Paging allocation logic
+        int startFrame = findFreeFrames(requiredPages);
 
-    if (startFrame == -1) {
-        return false; // No sufficient free space found
-    }
+        if (startFrame == -1) {
+            // If no free frames are available, we need to swap out an old process to the backing store
+            int oldestProcessID = findOldestProcess();
+            freeMemory(oldestProcessID);
 
-    // Allocate memory for the process: mark the frames as occupied
-    for (size_t i = startFrame; i < startFrame + requiredFrames; ++i) {
-        memoryFrames[i] = { processID, true };  // Mark each frame as occupied by the process
-    }
-
-
-    /*std::cout << "Memory Frames: [";
-    for (size_t i = 0; i < memoryFrames.size(); ++i) {
-        if (memoryFrames[i].isOccupied) {
-            std::cout << "P" << memoryFrames[i].processID;
+            // Try to allocate memory again after swapping out
+            startFrame = findFreeFrames(requiredPages);
+            if (startFrame == -1) {
+                return false; // Still no free frames available after swapping out
+            }
         }
-        else {
-            std::cout << "*";
+
+        // Allocate memory for the process (load the pages into memory)
+        for (size_t i = startFrame; i < startFrame + requiredPages; ++i) {
+            memoryFrames[i] = { processID, true, std::time(0) }; // Mark the page as occupied and set lastAccessed timestamp
         }
-        if (i != memoryFrames.size() - 1) {
-            std::cout << ", ";
+
+    }
+    else { // Flat memory allocation
+        // Flat allocation logic: Process memory must fit within contiguous frames
+        size_t requiredFrames = processMemory / mem_per_frame;
+
+        // Ensure process memory doesn't exceed the available space
+        if (requiredFrames * mem_per_frame > max_overall_mem) {
+            return false; // Not enough memory to allocate the process
+        }
+
+        // Find a contiguous block of free frames for the process
+        int startFrame = findFreeFrames(requiredFrames);
+
+        if (startFrame == -1) {
+            // If no contiguous space is available, swap out the oldest process
+            int oldestProcessID = findOldestProcess();
+            freeMemory(oldestProcessID);
+
+            // Try again after swapping out
+            startFrame = findFreeFrames(requiredFrames);
+            if (startFrame == -1) {
+                return false; // Still no contiguous space available
+            }
+        }
+
+        // Allocate memory for the process (mark frames as occupied)
+        for (size_t i = startFrame; i < startFrame + requiredFrames; ++i) {
+            memoryFrames[i] = { processID, true, std::time(0) }; // Mark the frame as occupied and set lastAccessed timestamp
         }
     }
-    std::cout << "]\n"; */
 
     return true;
 }
-
 
 // Free memory for a process
 void MemoryManager::freeMemory(int processID) {
     for (auto& frame : memoryFrames) {
         if (frame.processID == processID) {
-            frame.isOccupied = false;  
+            frame.isOccupied = false;
             frame.processID = -1;
+            frame.lastAccessed = 0; // Clear lastAccessed when freeing memory
         }
     }
-}
-
-// Generate a snapshot of the current memory status, saving it to a file.
-void MemoryManager::generateSnapshot(int quantumCycle) const {
-    std::ofstream file("memory_stamp_" + std::to_string(quantumCycle) + ".txt");
-
-    std::string timestamp = getCurrentTime();
-
-    // Write the summary information
-    file << "Timestamp: (" << timestamp << ")\n";
-    file << "Number of processes in memory: " << calculateNumberofProcesses() << "\n";
-    file << "Total external fragmentation in KB: " << calculateExternalFragmentation() << "\n";
-    file << "\n----end---- = " << max_overall_mem << "\n\n";
-
-    /*size_t occupiedMemory = 0;
-    for (const auto& frame : memoryFrames) {
-        if (frame.isOccupied) {
-            occupiedMemory += mem_per_frame;
-        }
-    }
-
-    size_t totalMemoryInFrames = memoryFrames.size();
-
-    // Display occupied and maximum memory per process
-    file << "Current Occupied Memory: " << occupiedMemory << " bytes\n";
-    file << "Total Memory Size of Memory Frames: " << totalMemoryInFrames << " bytes\n\n";
-
-
-    // Display the memory frames contents (simple view of memory frames)
-    file << "Memory Frames: [";
-    for (size_t i = 0; i < memoryFrames.size(); ++i) {
-        if (memoryFrames[i].isOccupied) {
-            file << "P" << memoryFrames[i].processID;
-        }
-        else {
-            file << "*";
-        }
-        if (i != memoryFrames.size() - 1) {
-            file << ", ";
-        }
-    }
-    file << "]\n\n"; */
-
-
-    // Calculate the maximum number of processes that can fit in memory
-    size_t maxProcessesInMemory = max_overall_mem / min_mem_per_proc;
-
-    // Memory Layout Representation
-    size_t processesDisplayed = 0;
-
-    // Iterate over memoryFrames and show allocated memory addresses
-    for (int i = 0; i < memoryFrames.size(); ++i) {
-        if (memoryFrames[i].isOccupied && processesDisplayed < maxProcessesInMemory) {
-            int processID = memoryFrames[i].processID;
-
-            // Print the upper boundary (current address)
-            size_t processStartAddress = max_overall_mem - (i * mem_per_frame); // Memory address where the process starts
-            size_t processEndAddress = processStartAddress - min_mem_per_proc;  // End address of the process in memory
-
-            // Write the boundaries to the file
-            file << processStartAddress << "\n"; // Upper boundary
-            file << "P" << processID << "\n";  // Process ID
-            file << processEndAddress << "\n\n"; // Lower boundary
-
-            // Skip the frames occupied by this process (i.e., skip min_mem_per_proc / mem_per_frame frames)
-            size_t framesToSkip = min_mem_per_proc / mem_per_frame;
-            i += framesToSkip - 1;
-
-            processesDisplayed++;
-
-            if (processesDisplayed >= maxProcessesInMemory) break;
-        }
-    }
-
-
-    file << "----start---- = 0\n";
-    file.close();
 }
 
 // Find the starting frame index for the first contiguous block of free frames.
 int MemoryManager::findFreeFrames(size_t requiredFrames) const {
-    size_t consecutiveFreeFrames = 0;
-    int startFrame = -1;
+    if (allocationType == "flat") {
+        // Flat memory allocation (requires contiguous blocks of memory)
+        size_t consecutiveFreeFrames = 0;
+        int startFrame = -1;
 
-    for (size_t i = 0; i < memoryFrames.size(); ++i) {
-        if (!memoryFrames[i].isOccupied) {
-            if (startFrame == -1) startFrame = i;
-            consecutiveFreeFrames++;
-            if (consecutiveFreeFrames == requiredFrames) {
-                return startFrame;
+        for (size_t i = 0; i < memoryFrames.size(); ++i) {
+            if (!memoryFrames[i].isOccupied) {
+                if (startFrame == -1) startFrame = i;
+                consecutiveFreeFrames++;
+                if (consecutiveFreeFrames == requiredFrames) {
+                    return startFrame;
+                }
+            }
+            else {
+                consecutiveFreeFrames = 0;
+                startFrame = -1;
             }
         }
-        else {
-            consecutiveFreeFrames = 0;
-            startFrame = -1;
+    }
+    else if (allocationType == "paging") {
+        // Paging memory allocation (non-contiguous pages)
+        size_t freeFramesFound = 0;
+        int startFrame = -1;
+
+        for (size_t i = 0; i < memoryFrames.size(); ++i) {
+            if (!memoryFrames[i].isOccupied) {
+                if (freeFramesFound == 0) {
+                    startFrame = i; // Mark the start of the free frames
+                }
+                freeFramesFound++;
+
+                // If we've found the required number of free frames, return the start index
+                if (freeFramesFound == requiredFrames) {
+                    return startFrame;
+                }
+            }
         }
     }
-    return -1;
+
+    return -1; // No sufficient free frames available
+}
+
+// Find the process that has been in memory the longest (oldest process)
+int MemoryManager::findOldestProcess() const {
+    int oldestProcessID = -1;
+    std::time_t oldestAccessTime = std::time_t(0); // Initialize to epoch time (oldest)
+
+    // Loop through all memory frames to find the process with the oldest access time
+    for (const auto& frame : memoryFrames) {
+        if (frame.isOccupied) {
+            // If we haven't found a process yet or if this one was accessed earlier
+            if (oldestProcessID == -1 || frame.lastAccessed < oldestAccessTime) {
+                oldestProcessID = frame.processID;
+                oldestAccessTime = frame.lastAccessed;
+            }
+        }
+    }
+
+    return oldestProcessID; // Return the process ID of the oldest process
 }
 
 // Get the current system time for snapshot
@@ -193,30 +172,6 @@ std::string MemoryManager::getCurrentTime() const {
     char buffer[50];
     std::strftime(buffer, sizeof(buffer), "%m/%d/%Y %I:%M:%S%p", &localTime);
     return buffer;
-}
-
-// Calculate external fragmentation in the system
-int MemoryManager::calculateExternalFragmentation() const {
-    int freeSlots = 0;
-    int largestContiguousBlock = 0;
-    int currentBlockSize = 0;
-
-    for (Frame frame : memoryFrames) {
-        if (!frame.isOccupied) { // If the slot is free
-            freeSlots++;
-            currentBlockSize++;
-            if (currentBlockSize > largestContiguousBlock) {
-                largestContiguousBlock = currentBlockSize;
-            }
-        }
-        else {
-            currentBlockSize = 0; // Reset block size when encountering an occupied slot
-        }
-    }
-
-    // External fragmentation: total free memory not in the largest contiguous block
-    int fragmentedMemory = (freeSlots - largestContiguousBlock) * mem_per_frame;
-    return fragmentedMemory > 0 ? fragmentedMemory : 0;
 }
 
 int MemoryManager::calculateNumberofProcesses() const {
@@ -241,7 +196,7 @@ void MemoryManager::setMaxOverallMem(size_t max_overall_mem) {
     max_overall_mem = max_overall_mem;
 }
 
-size_t MemoryManager::getMemPerFrame() const {               
+size_t MemoryManager::getMemPerFrame() const {
     return mem_per_frame;
 }
 

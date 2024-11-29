@@ -1,6 +1,10 @@
-﻿  MemoryManager.cpp
-C:\Users\Daniel\Documents\GitHub\csopesy-mo1\CSOPESY_Group10_MO1\MemoryManager.cpp(154,31): warning C4267: '+=': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\Daniel\Documents\GitHub\csopesy-mo1\CSOPESY_Group10_MO1\MemoryManager.cpp(174,48): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\Daniel\Documents\GitHub\csopesy-mo1\CSOPESY_Group10_MO1\MemoryManager.cpp(218,26): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\Daniel\Documents\GitHub\csopesy-mo1\CSOPESY_Group10_MO1\MemoryManager.cpp(233,32): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+﻿  AConsole.cpp
+  ConsoleManager.cpp
+C:\Users\Daniel\Documents\GitHub\csopesy-mo1\CSOPESY_Group10_MO1\ConsoleManager.cpp(574,26): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  MainMenu.cpp
+  MemoryManager.cpp
+C:\Users\Daniel\Documents\GitHub\csopesy-mo1\CSOPESY_Group10_MO1\MemoryManager.cpp(113,52): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\Daniel\Documents\GitHub\csopesy-mo1\CSOPESY_Group10_MO1\MemoryManager.cpp(133,34): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\Daniel\Documents\GitHub\csopesy-mo1\CSOPESY_Group10_MO1\MemoryManager.cpp(188,32): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+  Generating Code...
   CSOPESY_Group10_MO1.vcxproj -> C:\Users\Daniel\Documents\GitHub\csopesy-mo1\CSOPESY_Group10_MO1\x64\Debug\CSOPESY_Group10_MO1.exe

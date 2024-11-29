@@ -34,6 +34,7 @@ public:
     void displayCPUInfo();
     void listConsoles();
     void reportUtil();
+    void processSMI();
     void startScheduler();
     bool consoleExists(const string& name) const;
     bool hasConsoles() const;

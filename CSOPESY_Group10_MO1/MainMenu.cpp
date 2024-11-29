@@ -160,6 +160,12 @@ void checkCommand(const vector<string>& commandBuffer) {
             cout << "Generating report...\n";
             consoles.reportUtil();
         }
+        else if (command == "process-smi") {
+            consoles.processSMI();
+        }
+        else if (command == "vm-stat") {
+            consoles.reportUtil();
+        }
         else {
             cout << "Command " << command << " not recognized. Please try again.\n";
         }
