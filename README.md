@@ -1,3 +1,5 @@
+NOTE: Please proceed to the sub-branch 'final-mo2' for the Multitasking OS (MO2) version of the project.
+
 CSOPESY MO1 - Process Multiplexer and CLI
 
 Group 10 Members:
