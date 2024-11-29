@@ -263,7 +263,7 @@ void ConsoleManager::displayConsole(const string& name) const {
 
         // Display console information
         cout << "Process: \"" << console->getName() << "\"" << endl;
-        cout << "ID: " << console->getProcessID() << endl;  // Assuming you have a getID() function in AConsole
+        cout << "ID: " << console->getProcessID() << endl; 
         // cout << "Created At: " << console->getTimestamp() << endl;
         cout << "Current Line of Instruction: " << console->getInstructionLine() << endl;
         cout << "Lines of Code: " << console->getInstructionTotal() << endl;
@@ -505,7 +505,7 @@ void ConsoleManager::loopConsole(const string& name) {
                     else {
                         // Display current process information
                         cout << "Process: \"" << console.second->getName() << "\"" << endl;
-                        cout << "ID: " << console.second->getProcessID() << endl;  // Assuming you have a getID() function in AConsole
+                        cout << "ID: " << console.second->getProcessID() << endl;
                         // cout << "Created At: " << console.second->getTimestamp() << endl;
                         cout << "Current Line of Instruction: " << console.second->getInstructionLine() << endl;
                         cout << "Lines of Code: " << console.second->getInstructionTotal() << endl;
@@ -563,7 +563,7 @@ AConsole::Status ConsoleManager::getConsoleStatus(const string& name) const {
         return it->second->getStatus(); // Return the status of the console
     }
     // If console does not exist, return a default status (or handle it as you prefer)
-    return AConsole::TERMINATED; // Assuming terminated is a safe fallback; you can change this
+    return AConsole::TERMINATED;
 }
 
 void ConsoleManager::schedulerTest(bool set_scheduler) {

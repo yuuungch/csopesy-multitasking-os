@@ -108,7 +108,7 @@ void MemoryManager::freeMemory(int processID) {
     size_t freedPages = 0; // Track the number of pages freed
 
     for (auto& frame : memoryFrames) {
-        std::cout << "Frame process ID: " << frame.processID << ", Target process ID: " << processID << "\n";
+        //std::cout << "Frame process ID: " << frame.processID << ", Target process ID: " << processID << "\n";
 
         if (frame.processID == processID) {
             frame.isOccupied = false;  // Mark frame as free
