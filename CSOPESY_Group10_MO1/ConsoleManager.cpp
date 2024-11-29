@@ -80,7 +80,7 @@ void ConsoleManager::readConfig(const string& filename) {
         }
         else if (key == "quantum-cycles") {
             iss >> quantum_cycles;
-            if (quantum_cycles < 1 || quantum_cycles > MAX_VALUE) {
+            if (scheduler == "rr" && (quantum_cycles < 1 || quantum_cycles > MAX_VALUE)) {
                 cerr << "Error: Invalid quantum-cycles value: " << quantum_cycles << ". Must be in range [1, " << MAX_VALUE << "].\n";
                 return;
             }
@@ -172,6 +172,7 @@ void ConsoleManager::testConfig() {
 * 
 * @param name - the name of the console
 */
+
 void ConsoleManager::addConsole(const string& name, bool fromScreenCommand = false) {
     lock_guard<mutex> lock(processMutex);
 
@@ -201,20 +202,38 @@ void ConsoleManager::addConsole(const string& name, bool fromScreenCommand = fal
     size_t processesInMemory = memoryManager->calculateNumberofProcesses();
     size_t maxProcessesInMemory = memoryManager->getMaxOverallMem() / memoryManager->getMinMemPerProc();
 
-    // Try to allocate memory for the new console
-    if (waitingQueue.empty() && processesInMemory < maxProcessesInMemory) {
-        if (memoryManager->allocateMemory(newConsole->getProcessID())) {
-            memoryQueue.push(newConsole);
-            // cout << "Console " << newConsole->getName() << " allocated memory and added to memoryQueue." << endl;
+    // Check the allocation type
+    if (memoryManager->getAllocationType() == "flat") {
+        // Flat memory allocation logic
+        if (waitingQueue.empty() && processesInMemory < maxProcessesInMemory) {
+            if (memoryManager->allocateMemory(newConsole->getProcessID())) {
+                waitingQueue.push(newConsole);
+                memoryQueue.push(newConsole);
+                // cout << "Console " << newConsole->getName() << " allocated memory and added to memoryQueue." << endl;
+            }
+        }
+        else {
+            waitingQueue.push(newConsole);
+            // cout << "Added to waitingQueue: " << newConsole->getName() << endl;
         }
     }
-    else {
-        waitingQueue.push(newConsole);
-        // cout << "Added to waitingQueue: " << newConsole->getName() << endl;
-    }
+    else if (memoryManager->getAllocationType() == "paging") {
+        // Paging memory allocation logic
+        size_t requiredMemory = memoryManager->getMinMemPerProc() + (rand() % (memoryManager->getMaxMemPerProc() - memoryManager->getMinMemPerProc() + 1));
+        size_t requiredFrames = (requiredMemory + memoryManager->getMemPerFrame() - 1) / memoryManager->getMemPerFrame();
 
-    // cout << "Number of processes in WaitingQueue: " << waitingQueue.size() << endl;
-    // cout << "Number of processes in MemoryQueue: " << memoryQueue.size() << endl;
+        if (waitingQueue.empty() && memoryManager->findFreeFrames(requiredFrames) != -1) {
+            if (memoryManager->allocateMemory(newConsole->getProcessID())) {
+                waitingQueue.push(newConsole);
+                memoryQueue.push(newConsole);
+                // cout << "Console " << newConsole->getName() << " allocated memory and added to memoryQueue." << endl;
+            }
+        }
+        else {
+            waitingQueue.push(newConsole);
+            // cout << "Added to waitingQueue: " << newConsole->getName() << endl;
+        }
+    }
 
     // Add the new console to the consoles map
     consoles[name] = newConsole;
@@ -224,7 +243,12 @@ void ConsoleManager::addConsole(const string& name, bool fromScreenCommand = fal
         // Call displayConsole to show the relevant details
         displayConsole(name);
     }
+
+    startScheduler();
 }
+
+
+
 /*
 * This function displays the information of the specified console
 * 
@@ -567,7 +591,7 @@ void ConsoleManager::schedulerTest(bool set_scheduler) {
         }
     }).detach();
 }
-
+/*
 void ConsoleManager::processSMI() {
     int cpuUtilization = 0;
     int usedMemory = 0;
@@ -594,7 +618,43 @@ void ConsoleManager::processSMI() {
             cout << console->getName() + "\n";
         }
     }
+}*/
+
+void ConsoleManager::processSMI() {
+	int usedMemory = memoryManager->calculateNumberofProcesses() * memoryManager->getMinMemPerProc();
+    int freeMemory = memoryManager->getMaxOverallMem() - usedMemory;
+
+    cout << "--------------------------------------------\n";
+    cout << "| PROCESS-SMI V01.00 Driver Version 01.00 |\n";
+    cout << "--------------------------------------------\n";
+    cout << "Total Memory: " << memoryManager->getMaxOverallMem() << " KB\n";
+    cout << "Used Memory: " << usedMemory << " KB\n";
+    cout << "Free Memory: " << freeMemory << " KB\n";
+    cout << "--------------------------------------------\n";
+    cout << "Running Processes:\n";
+
+    for (const auto& consolePair : consoles) {
+        AConsole* console = consolePair.second;
+        if (console->getStatus() == AConsole::RUNNING) {
+			if (memoryManager->getProcessMemory(console->getProcessID()) > 0) {
+				cout << console->getName() << " - Memory: "
+					<< memoryManager->getProcessMemory(console->getProcessID()) << " KB\n";
+			}
+        }
+    }
+
+    /*queue<AConsole*> memoryQueueCopy = memoryQueue;
+
+    if (!memoryQueueCopy.empty()) {
+        for (AConsole* console = memoryQueueCopy.front(); !memoryQueueCopy.empty(); memoryQueueCopy.pop()) {
+            if (memoryManager->getProcessMemory(console->getProcessID()) > 0) {
+                cout << console->getName() << " - Memory: "
+                    << memoryManager->getProcessMemory(console->getProcessID()) << " KB\n";
+            }
+        }
+    }*/
 }
+
 
 void ConsoleManager::schedulerFCFS() {
     while (true) {
@@ -690,4 +750,30 @@ void ConsoleManager::schedulerRR() {
         }
 
     }
+}
+void ConsoleManager::vmStat() const {
+    std::cout << "--------------------------------------------\n";
+    std::cout << "| VIRTUAL MEMORY STATISTICS               |\n";
+    std::cout << "--------------------------------------------\n";
+    std::cout << "Total Memory: " << memoryManager->getMaxOverallMem() << " KB\n";
+    std::cout << "Memory Per Frame: " << memoryManager->getMemPerFrame() << " KB\n";
+
+    size_t usedMemory = memoryManager->calculateUsedMemory();
+    std::cout << "Used Memory: " << usedMemory << " KB\n";
+    std::cout << "Free Memory: " << (memoryManager->getMaxOverallMem() - usedMemory) << " KB\n";
+
+    std::cout << "\nProcess Memory Usage:\n";
+    std::cout << "--------------------------------------------\n";
+    std::cout << std::setw(10) << "Process Name " << std::setw(10) << "Memory (KB)\n";
+    std::cout << "--------------------------------------------\n";
+
+    for (const auto& consolePair : consoles) {
+        AConsole* console = consolePair.second;
+        size_t memoryUsed = memoryManager->getProcessMemory(console->getProcessID());
+        if (memoryUsed > 0) {
+            std::cout << std::setw(15) << console->getName() << std::setw(10) << memoryUsed << "\n";
+        }
+    }
+
+    std::cout << "--------------------------------------------\n";
 }

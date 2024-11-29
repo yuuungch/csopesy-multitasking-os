@@ -19,9 +19,7 @@ private:
     size_t max_mem_per_proc; // Maximum memory allowed for each process
     std::string allocationType;  // Allocation type: "flat" or "paging"
 
-    // Helper functions
-    int findFreeFrames(size_t requiredFrames) const;
-    int findOldestProcess() const;  // For swapping out the oldest process
+    
     std::string getCurrentTime() const;  // For generating snapshots
 
 public:
@@ -36,10 +34,19 @@ public:
 
     // Memory management utilities
     int calculateNumberofProcesses() const;         // Returns the number of unique processes in memory
+    size_t getProcessMemory(int processID) const;   // Calculates memory used by a specific process
+    size_t calculateUsedMemory() const;  // Calculates the total memory currently in use
+
+    size_t getPagedInCount() const;
+    size_t getPagedOutCount() const;
 
     // Getters and setters
     size_t getMaxOverallMem() const;
     void setMaxOverallMem(size_t maxOverallMem);
+
+    // Helper functions
+    int findFreeFrames(size_t requiredFrames) const;
+    int findOldestProcess() const;  // For swapping out the oldest process
 
     size_t getMemPerFrame() const;
     void setMemPerFrame(size_t memPerFrame);

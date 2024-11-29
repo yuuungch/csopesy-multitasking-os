@@ -23,6 +23,8 @@ MemoryManager::MemoryManager(size_t max_overall_mem, size_t mem_per_frame, size_
     }
 }
 
+size_t pagedInCount = 0;
+size_t pagedOutCount = 0;
 // Allocate memory for a process using the first-fit method.
 bool MemoryManager::allocateMemory(int processID) {
 
@@ -54,6 +56,7 @@ bool MemoryManager::allocateMemory(int processID) {
         // Allocate memory for the process (load the pages into memory)
         for (size_t i = startFrame; i < startFrame + requiredPages; ++i) {
             memoryFrames[i] = { processID, true, std::time(0) }; // Mark the page as occupied and set lastAccessed timestamp
+            pagedInCount++;
         }
 
     }
@@ -84,22 +87,36 @@ bool MemoryManager::allocateMemory(int processID) {
         // Allocate memory for the process (mark frames as occupied)
         for (size_t i = startFrame; i < startFrame + requiredFrames; ++i) {
             memoryFrames[i] = { processID, true, std::time(0) }; // Mark the frame as occupied and set lastAccessed timestamp
+            pagedInCount++;
         }
     }
 
     return true;
 }
 
+
+
 // Free memory for a process
 void MemoryManager::freeMemory(int processID) {
+    size_t freedPages = 0;  // Track the number of freed pages
     for (auto& frame : memoryFrames) {
+        //std::cout << "Freed " << freedPages << " pages for Process ID: " << processID << "\n";
         if (frame.processID == processID) {
-            frame.isOccupied = false;
-            frame.processID = -1;
-            frame.lastAccessed = 0; // Clear lastAccessed when freeing memory
+            frame.isOccupied = false;   // Mark the frame as unoccupied
+            frame.processID = -1;      // Clear the process ID
+            frame.lastAccessed = 0;    // Reset the last accessed timestamp
+            freedPages++;              // Increment freedPages counter
         }
     }
+
+    // Update the total paged-out count if tracking paging statistics
+    pagedOutCount += freedPages;
+
 }
+
+
+size_t MemoryManager::getPagedInCount() const { return pagedInCount; }
+size_t MemoryManager::getPagedOutCount() const { return pagedOutCount; }
 
 // Find the starting frame index for the first contiguous block of free frames.
 int MemoryManager::findFreeFrames(size_t requiredFrames) const {
@@ -232,4 +249,31 @@ void MemoryManager::setAllocationType(const std::string& type) {
     if (type == "flat" || type == "paging") {
         allocationType = type;
     }
+}
+
+size_t MemoryManager::getProcessMemory(int processID) const {
+    size_t memoryUsed = 0;
+
+    // Iterate through all memory frames
+    for (const auto& frame : memoryFrames) {
+        // Check if the frame is occupied by the given process
+        if (frame.isOccupied && frame.processID == processID) {
+            memoryUsed += mem_per_frame; // Add the frame size to the total memory used
+        }
+    }
+
+    return memoryUsed;
+}
+
+size_t MemoryManager::calculateUsedMemory() const {
+    size_t totalUsedMemory = 0;
+
+    // Iterate through all memory frames
+    for (const auto& frame : memoryFrames) {
+        if (frame.isOccupied) {
+            totalUsedMemory += mem_per_frame; // Add frame size to total used memory
+        }
+    }
+
+    return totalUsedMemory;
 }
